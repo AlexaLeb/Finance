@@ -205,7 +205,7 @@ def EF_graph(meanReturns, covMatrix, riskFreeRate=8, constraintSet=(0, 1)):
     fig = go.Figure(data=data, layout=layout)
     return fig.show()
 
-stocklist = ['AAPL', 'BHP', 'TLS']
+stocklist = ['AAPL', 'BHP', 'TLS']  # Лист акций
 # stock = [stock + '.AX' for stock in stocklist]
 
 endDate = dt2(2020,12,31)

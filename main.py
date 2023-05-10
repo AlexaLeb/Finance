@@ -208,7 +208,7 @@ def EF_graph(meanReturns, covMatrix, riskFreeRate=8, constraintSet=(0, 1)):
 stocklist = ['AAPL', 'BHP', 'TLS']  # Лист акций
 # stock = [stock + '.AX' for stock in stocklist]
 
-endDate = dt2(2020,12,31)
+endDate = dt2(2020, 12, 31)
 startDate = endDate - dt.timedelta(days=365)
 
 weight = np.array([0.3, 0.3, 0.4])

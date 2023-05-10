@@ -16,7 +16,7 @@ def get_data(stocks: list, start, end):
     :param stocks: список акций
     :param start: время начальное
     :param end: время конечное
-    :return:
+    :return: среднюю ежедневную доходность и ковариационную матрицу
     """
     stockdata = pdr.get_data_yahoo(stocks, start=start, end=end)
     stockdata = stockdata['Close']  # Получили цены закрытия
@@ -27,6 +27,13 @@ def get_data(stocks: list, start, end):
 
 
 def portfolioPerformance(weights, meanReturns, covMatrix):
+    """
+    Функция находит доходность портфеля и его среднеквадратичное отклонение.
+    :param weights: веса активов.
+    :param meanReturns: средняя доходность в сутки.
+    :param covMatrix: матрица ковариации.
+    :return: доходность за год, стандартное отклонение.
+    """
     returns = np.sum(meanReturns*weights)*252
     std = np.sqrt(
             np.dot(weights.T, np.dot(covMatrix, weights))
@@ -34,14 +41,31 @@ def portfolioPerformance(weights, meanReturns, covMatrix):
     return returns, std
 
 
-def negativeSR(weights, meanReturns, covMatrix, riskFreeRate = 0):
+def negativeSR(weights, meanReturns, covMatrix, riskFreeRate = 3):
+    """
+    В библиотеки scipy нет функции максимизации, зато есть функция минимизации. Так как мы хотим найти максимальный
+    коэффициент Шарпа, то сначала мы сделаем его отрицательным, чтобы минимизировать отрицательный. Так мы найдем и
+    положительный.
+    :param weights: веса активов.
+    :param meanReturns: средняя доходность активов.
+    :param covMatrix: матрица ковариации.
+    :param riskFreeRate: безрисковая ставка доходности.
+    :return: негативный коэф шарпа.
+    """
     pReturns, pStd = portfolioPerformance(weights, meanReturns, covMatrix)
     return - (pReturns - riskFreeRate)/pStd
 
 
 def maxSRatio(meanReturns, covMatrix, riskFreeRate = 0, constraintSet=(0, 1)):
-    "Minimize the negative SR, by altering the weights of the portfolio"
-    numAssets = len(meanReturns)
+    """
+    Минимизирует негативный К шарпа балансируя веса портфеля.
+    :param meanReturns: средняя доходность активов.
+    :param covMatrix: матрица ковариации.
+    :param riskFreeRate: безрисковая ставка доходности.
+    :param constraintSet: параметр необходимый для решения уравнения.
+    :return: большой словарь по оптимизации заданных параметров .
+    """
+    numAssets = len(meanReturns)  # количество активов
     args = (meanReturns, covMatrix, riskFreeRate)
     constraints = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
     bound = constraintSet
@@ -52,12 +76,24 @@ def maxSRatio(meanReturns, covMatrix, riskFreeRate = 0, constraintSet=(0, 1)):
 
 
 def portfolioVariance(weights, meanReturns, covMatrix):
+    """
+    Выдает отклонение портфеля (вариацию)
+    :param weights: веса
+    :param meanReturns: среднее
+    :param covMatrix: ковариация
+    :return: отклонения
+    """
     return portfolioPerformance(weights, meanReturns, covMatrix)[1]
 
 
 def minimizeVariance(meanReturns, covMatrix, constraintSet=(0,1)):
-    """Minimize the portfolio variance by altering the
-     weights/allocation of assets in the portfolio"""
+    """
+    Выдает веса для минимальной вариации
+    :param meanReturns: средняя доходность
+    :param covMatrix: матрица ковариации
+    :param constraintSet: параметрр для решения уравнения
+    :return:
+    """
     numAssets = len(meanReturns)
     args = (meanReturns, covMatrix)
     constraints = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
@@ -69,21 +105,35 @@ def minimizeVariance(meanReturns, covMatrix, constraintSet=(0,1)):
 
 
 def calculatedResults(meanReturns, covMatrix, riskFreeRate=0, constraintSet=(0, 1)):
-    """Read in mean, cov matrix, and other financial information
-        Output, Max SR , Min Volatility, efficient frontier """
-    # Max Sharpe Ratio Portfolio
+    """
+    Общая функция, которая вызывает остальные функции расчета, обрабатывает их результат
+    :param meanReturns: средняя
+    :param covMatrix: матрица ковариации
+    :param riskFreeRate: безрисковая ставка доходноости
+    :param constraintSet: параметр для решения уравнения.
+    :return:
+    1. Доходность максимального к Шапра
+    2. Волатильность максимального к Шарпа
+    3. Веса портфеля максимальног к Шарпа
+    4. Доходность минимальной волатильности
+    5. Волотильность минимальной волатильности
+    6. Веса минимальной волатильности
+    7. Доходность промежуточных параметров для построения графика
+    8. Валотильноость промежуточных параметров для построения графика
+    """
+    # Максимальный к Шарпа
     maxSR_Portfolio = maxSRatio(meanReturns, covMatrix)
     maxSR_returns, maxSR_std = portfolioPerformance(maxSR_Portfolio['x'], meanReturns, covMatrix)
     maxSR_allocation = pd.DataFrame(maxSR_Portfolio['x'], index=meanReturns.index, columns=['allocation'])
     maxSR_allocation.allocation = [round(i * 100, 0) for i in maxSR_allocation.allocation]
     print(maxSR_allocation.allocation)
 
-    # Min Volatility Portfolio
+    # Минимальная волатильность
     minVol_Portfolio = minimizeVariance(meanReturns, covMatrix)
     minVol_returns, minVol_std = portfolioPerformance(minVol_Portfolio['x'], meanReturns, covMatrix)
     minVol_allocation = pd.DataFrame(minVol_Portfolio['x'], index=meanReturns.index, columns=['allocation'])
     minVol_allocation.allocation = [round(i * 100, 0) for i in minVol_allocation.allocation]
-    # Efficient Frontier
+    # Граница эффективности
     efficientList = []
     targetReturns = np.linspace(minVol_returns, maxSR_returns, 15)
     for target in targetReturns:
@@ -93,11 +143,12 @@ def calculatedResults(meanReturns, covMatrix, riskFreeRate=0, constraintSet=(0, 
 
 
 def portfolioReturn(weights, meanReturns, covMatrix):
+    """Считает доходность портфеля"""
     return portfolioPerformance(weights, meanReturns, covMatrix)[0]
 
 
 def efficientOpt(meanReturns, covMatrix, returnTarget, constraintSet=(0, 1)):
-    """For each returnTarget, we want to optimise the portfolio for min variance"""
+    """Считает параметры для построения границы эффективности"""
     numAssets = len(meanReturns)
     args = (meanReturns, covMatrix)
     constraints = ({'type': 'eq', 'fun': lambda x: portfolioReturn(x, meanReturns, covMatrix) - returnTarget},
@@ -110,28 +161,28 @@ def efficientOpt(meanReturns, covMatrix, returnTarget, constraintSet=(0, 1)):
 
 
 def EF_graph(meanReturns, covMatrix, riskFreeRate=8, constraintSet=(0, 1)):
-    """Return a graph ploting the min vol, max sr and efficient frontier"""
+    """Строит границу эффективности"""
     maxSR_returns, maxSR_std, maxSR_allocation, minVol_returns, minVol_std, minVol_allocation, \
         efficientList, targetReturns = calculatedResults(meanReturns, covMatrix, riskFreeRate, constraintSet)
-    # Max SR
+    # Максимальный к Шарпа
     MaxSharpeRatio = go.Scatter(
-        name='Maximium Sharpe Ratio',
+        name='Максимальный к Шарпа',
         mode='markers',
         x=[round(100*maxSR_std, 4)],
         y=[round(100*maxSR_returns, 4)],
         marker=dict(color='red', size=14, line=dict(width=3, color='black'))
     )
-    # Min Vol
+    # Минимальная волатильность
     MinVol = go.Scatter(
-        name='Mininium Volatility',
+        name='Минимальная волатильность',
         mode='markers',
         x=[round(100 * minVol_std, 4)],
         y=[round(100 * minVol_returns, 4)],
         marker=dict(color='green', size=14, line=dict(width=3, color='black'))
     )
-    # Efficient Frontier
+    # Граница эффективности
     EF_curve = go.Scatter(
-        name='Efficient Frontier',
+        name='Граница эффективности',
         mode='lines',
         x=[round(ef_std * 100, 4) for ef_std in efficientList],
         y=[round(100 * target, 4) for target in targetReturns],
@@ -139,9 +190,9 @@ def EF_graph(meanReturns, covMatrix, riskFreeRate=8, constraintSet=(0, 1)):
     )
     data = [MaxSharpeRatio, MinVol, EF_curve]
     layout = go.Layout(
-        title='Portfolio Optimisation with the Efficient Frontier',
-        yaxis=dict(title='Annualised Return (%)'),
-        xaxis=dict(title='Annualised Volatility (%)'),
+        title='Оптимизация портфеля с границей эффективности',
+        yaxis=dict(title='Годовой доход (%)'),
+        xaxis=dict(title='Годовая волатильность (%)'),
         showlegend=True,
         legend=dict(
             x=0.75, y=0, traceorder='normal',

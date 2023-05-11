@@ -6,11 +6,12 @@ import yfinance as yf
 from pandas_datareader import data as pdr
 import scipy.optimize as sc
 import plotly.graph_objects as go
+import openpyxl as xl
 
 yf.pdr_override()
 
 # fdf dij
-def get_data(stocks: list, start, end):
+def get_data(stocks, start, end):
     """
     Импортирует данные
     :param stocks: список акций
@@ -20,7 +21,13 @@ def get_data(stocks: list, start, end):
     """
     stockdata = pdr.get_data_yahoo(stocks, start=start, end=end)
     stockdata = stockdata['Close']  # Получили цены закрытия
+    df = pd.read_csv('United States 1-Year Bond Yield Historical Data.csv')  # Прочитали файл с данными по облигациям
+    # облигации не импортируются по тикетам к сожалению
+    df['Date'] = pd.to_datetime(df['Date'])
+    df = df.set_index(df['Date'])
+    df = df['Change %'].apply(lambda x: float(x[0:-1]) if "%" in x else float(x)) # убрали знак процента
     returns = stockdata.pct_change()  # Получили дневную доходность
+    returns['Bonds'] = df
     mean = returns.mean()  # Получили среднее доходности
     covMatrix = returns.cov()  # Получили матрицу ковариации
     return mean, covMatrix
@@ -205,8 +212,23 @@ def EF_graph(meanReturns, covMatrix, riskFreeRate=8, constraintSet=(0, 1)):
     fig = go.Figure(data=data, layout=layout)
     return fig.show()
 
+# def writer():
+#     book = xl.Workbook()
+#     book.remove(book.active)
+#
+#     book.create_sheet('1')
+#     book.create_sheet('2')
+#     book.create_sheet('3')
+#     a, b, c, d, e, f = calculatedResults(meant, cov, 4)
+#     l = [a, b, c, d, e, f]
+#     for sheet in book.worksheets:
+#         for row in l:
+#             sheet.append([str(row)])
+#
+#     book.save('sample.xlsx')
+#
 stocklist = ['AAPL', 'BHP', 'TLS']  # Лист акций
-# stock = [stock + '.AX' for stock in stocklist]
+# # stock = [stock + '.AX' for stock in stocklist]
 
 endDate = dt2(2020, 12, 31)
 startDate = endDate - dt.timedelta(days=365)
@@ -215,8 +237,9 @@ weight = np.array([0.3, 0.3, 0.4])
 meant, cov = get_data(stocklist, start=startDate, end=endDate)
 
 
-print(calculatedResults(meant, cov))
+# print(get_data(stocklist, startDate, endDate))
 
-# print(efficientOptim(meant, cov, 0.09))
+print(calculatedResults(meant, cov, 4))
 
-print(EF_graph(meant, cov))
+# writer()
+

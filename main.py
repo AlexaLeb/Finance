@@ -133,7 +133,6 @@ def calculatedResults(meanReturns, covMatrix, riskFreeRate=0, constraintSet=(0, 
     maxSR_returns, maxSR_std = portfolioPerformance(maxSR_Portfolio['x'], meanReturns, covMatrix)
     maxSR_allocation = pd.DataFrame(maxSR_Portfolio['x'], index=meanReturns.index, columns=['allocation'])
     maxSR_allocation.allocation = [round(i * 100, 0) for i in maxSR_allocation.allocation]
-    print(maxSR_allocation.allocation)
 
     # Минимальная волатильность
     minVol_Portfolio = minimizeVariance(meanReturns, covMatrix)
@@ -212,20 +211,25 @@ def EF_graph(meanReturns, covMatrix, riskFreeRate=8, constraintSet=(0, 1)):
     fig = go.Figure(data=data, layout=layout)
     return fig.show()
 
-# def writer():
-#     book = xl.Workbook()
-#     book.remove(book.active)
-#
-#     book.create_sheet('1')
-#     book.create_sheet('2')
-#     book.create_sheet('3')
-#     a, b, c, d, e, f = calculatedResults(meant, cov, 4)
-#     l = [a, b, c, d, e, f]
-#     for sheet in book.worksheets:
-#         for row in l:
-#             sheet.append([str(row)])
-#
-#     book.save('sample.xlsx')
+def writer():
+    """Функция записывает что-то в ексель файл, просто задел на будущее"""
+    book = xl.Workbook()
+    book.remove(book.active)
+
+    book.create_sheet('1')
+    book.create_sheet('2')
+    book.create_sheet('3')
+    a, b, c, d, e, f, g, h = calculatedResults(meant, cov, 4)
+    for i in g:
+        i = float(i)
+    for i in h:
+        i = float(i)
+    l = [float(a), float(b), str(c), float(d), float(e), str(f)]
+    book.worksheets[0].append(l)
+    book.worksheets[1].append(list(g))
+    book.worksheets[2].append(list(h))
+
+    book.save('sample.xlsx')
 #
 stocklist = ['AAPL', 'BHP', 'TLS']  # Лист акций
 # # stock = [stock + '.AX' for stock in stocklist]
@@ -239,7 +243,7 @@ meant, cov = get_data(stocklist, start=startDate, end=endDate)
 
 # print(get_data(stocklist, startDate, endDate))
 
-print(calculatedResults(meant, cov, 4))
+# print(calculatedResults(meant, cov, 4))
 
-# writer()
+writer()
 

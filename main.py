@@ -10,7 +10,7 @@ import openpyxl as xl
 
 yf.pdr_override()
 
-# fdf dij
+
 def get_data(stocks, start, end):
     """
     Импортирует данные
@@ -25,7 +25,7 @@ def get_data(stocks, start, end):
     # облигации не импортируются по тикетам к сожалению
     df['Date'] = pd.to_datetime(df['Date'])
     df = df.set_index(df['Date'])
-    df = df['Change %'].apply(lambda x: float(x[0:-1]) if "%" in x else float(x)) # убрали знак процента
+    df = df['Change %'].apply(lambda x: float(x[0:-1]) if "%" in x else float(x))  # убрали знак процента
     returns = stockdata.pct_change()  # Получили дневную доходность
     returns['Bonds'] = df
     mean = returns.mean()  # Получили среднее доходности
@@ -48,7 +48,36 @@ def portfolioPerformance(weights, meanReturns, covMatrix):
     return returns, std
 
 
-def negativeSR(weights, meanReturns, covMatrix, riskFreeRate = 3):
+def negativePP(weights, meanReturns, covMatrix):
+    """
+    Функция находит доходность портфеля.
+    :param weights: веса активов.
+    :param meanReturns: средняя доходность в сутки.
+    :return: доходность за год.
+    """
+    returns = portfolioPerformance(weights, meanReturns, covMatrix)[0]
+    return - returns
+
+
+def maxPPerformance(meanReturns, covMatrix, riskFreeRate = 0, constraintSet=(0, 1)):
+    """
+    Минимизирует негативную доходность портфеля.
+    :param meanReturns: средняя доходность активов.
+    :param riskFreeRate: безрисковая ставка доходности.
+    :param constraintSet: параметр необходимый для решения уравнения.
+    :return: большой словарь по оптимизации заданных параметров.
+    """
+    numAssets = len(meanReturns) # количество активов
+    args = (meanReturns, covMatrix)
+    constraints = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
+    bound = constraintSet
+    bounds = tuple(bound for asset in range(numAssets))
+    result = sc.minimize(negativePP, numAssets*[1./numAssets], args=args,
+                         method='SLSQP', bounds=bounds, constraints=constraints)
+    return result
+
+
+def negativeSR(weights, meanReturns, covMatrix, riskFreeRate = 4):
     """
     В библиотеки scipy нет функции максимизации, зато есть функция минимизации. Так как мы хотим найти максимальный
     коэффициент Шарпа, то сначала мы сделаем его отрицательным, чтобы минимизировать отрицательный. Так мы найдем и
@@ -63,7 +92,7 @@ def negativeSR(weights, meanReturns, covMatrix, riskFreeRate = 3):
     return - (pReturns - riskFreeRate)/pStd
 
 
-def maxSRatio(meanReturns, covMatrix, riskFreeRate = 0, constraintSet=(0, 1)):
+def maxSRatio(meanReturns, covMatrix, riskFreeRate = 4, constraintSet=(0.04, 0.5)):
     """
     Минимизирует негативный К шарпа балансируя веса портфеля.
     :param meanReturns: средняя доходность активов.
@@ -93,7 +122,7 @@ def portfolioVariance(weights, meanReturns, covMatrix):
     return portfolioPerformance(weights, meanReturns, covMatrix)[1]
 
 
-def minimizeVariance(meanReturns, covMatrix, constraintSet=(0,1)):
+def minimizeVariance(meanReturns, covMatrix, constraintSet=(0.04, 0.5)):
     """
     Выдает веса для минимальной вариации
     :param meanReturns: средняя доходность
@@ -110,8 +139,10 @@ def minimizeVariance(meanReturns, covMatrix, constraintSet=(0,1)):
                         method='SLSQP', bounds=bounds, constraints=constraints)
     return result
 
+# def negativeMSR(weights, meanReturns, covMatrix, riskFreeRate = 4):
 
-def calculatedResults(meanReturns, covMatrix, riskFreeRate=0, constraintSet=(0, 1)):
+
+def calculatedResults(meanReturns, covMatrix, riskFreeRate=4, constraintSet=(0.04, 0.20)):
     """
     Общая функция, которая вызывает остальные функции расчета, обрабатывает их результат
     :param meanReturns: средняя
@@ -128,24 +159,41 @@ def calculatedResults(meanReturns, covMatrix, riskFreeRate=0, constraintSet=(0, 
     7. Доходность промежуточных параметров для построения графика
     8. Валотильноость промежуточных параметров для построения графика
     """
+    print('Итог')
     # Максимальный к Шарпа
-    maxSR_Portfolio = maxSRatio(meanReturns, covMatrix)
+    maxSR_Portfolio = maxSRatio(meanReturns, covMatrix, riskFreeRate, constraintSet)
     maxSR_returns, maxSR_std = portfolioPerformance(maxSR_Portfolio['x'], meanReturns, covMatrix)
     maxSR_allocation = pd.DataFrame(maxSR_Portfolio['x'], index=meanReturns.index, columns=['allocation'])
-    maxSR_allocation.allocation = [round(i * 100, 0) for i in maxSR_allocation.allocation]
+    maxSR_allocation.allocation = [round(i * 100, 3) for i in maxSR_allocation.allocation]
+    print('\nМаксимальный к Шарпа, веса активов')
+    print(maxSR_allocation)
+    print(f'доходность - {maxSR_returns}, волатильность - {maxSR_std}')
 
     # Минимальная волатильность
-    minVol_Portfolio = minimizeVariance(meanReturns, covMatrix)
+    minVol_Portfolio = minimizeVariance(meanReturns, covMatrix, constraintSet)
     minVol_returns, minVol_std = portfolioPerformance(minVol_Portfolio['x'], meanReturns, covMatrix)
     minVol_allocation = pd.DataFrame(minVol_Portfolio['x'], index=meanReturns.index, columns=['allocation'])
-    minVol_allocation.allocation = [round(i * 100, 0) for i in minVol_allocation.allocation]
+    minVol_allocation.allocation = [round(i * 100, 3) for i in minVol_allocation.allocation]
+    print('\nМинимальная волатильность')
+    print(minVol_allocation)
+    print(f'доходность - {minVol_returns}, волатильность - {minVol_std}')
+
+    # Максимальная доходность
+    maxPerf_Portfolio = maxPPerformance(meanReturns, covMatrix, riskFreeRate, constraintSet)
+    maxPerf_returns, maxPerf_std = portfolioPerformance(maxPerf_Portfolio['x'], meanReturns, covMatrix)
+    maxPerf_allocation = pd.DataFrame(maxPerf_Portfolio['x'], index=meanReturns.index, columns=['allocation'])
+    maxPerf_allocation.allocation = [round(i * 100, 0) for i in maxPerf_allocation.allocation]
+    print('\nМаксимальная доходность')
+    print(maxPerf_allocation)
+    print(f'доходность - {maxPerf_returns}, волатильность - {maxPerf_std}')
+
     # Граница эффективности
     efficientList = []
     targetReturns = np.linspace(minVol_returns, maxSR_returns, 15)
     for target in targetReturns:
         efficientList.append(efficientOpt(meanReturns, covMatrix, target)['fun'])
     return maxSR_returns, maxSR_std, maxSR_allocation, minVol_returns, minVol_std, \
-        minVol_allocation, efficientList, targetReturns
+        minVol_allocation, maxPerf_returns, maxPerf_std, maxPerf_allocation, efficientList, targetReturns
 
 
 def portfolioReturn(weights, meanReturns, covMatrix):
@@ -166,10 +214,11 @@ def efficientOpt(meanReturns, covMatrix, returnTarget, constraintSet=(0, 1)):
     return effOpt
 
 
-def EF_graph(meanReturns, covMatrix, riskFreeRate=8, constraintSet=(0, 1)):
+def EF_graph(meanReturns, covMatrix, riskFreeRate=4, constraintSet=(0, 1)):
     """Строит границу эффективности"""
     maxSR_returns, maxSR_std, maxSR_allocation, minVol_returns, minVol_std, minVol_allocation, \
-        efficientList, targetReturns = calculatedResults(meanReturns, covMatrix, riskFreeRate, constraintSet)
+        maxPerf_returns, maxPerf_std, maxPerf_allocation, efficientList, targetReturns = \
+        calculatedResults(meanReturns, covMatrix, riskFreeRate, constraintSet)
     # Максимальный к Шарпа
     MaxSharpeRatio = go.Scatter(
         name='Максимальный к Шарпа',
@@ -220,6 +269,7 @@ def writer():
     book.create_sheet('2')
     book.create_sheet('3')
     a, b, c, d, e, f, g, h = calculatedResults(meant, cov, 4)
+    print(f)
     for i in g:
         i = float(i)
     for i in h:
@@ -231,19 +281,38 @@ def writer():
 
     book.save('sample.xlsx')
 #
-stocklist = ['AAPL', 'BHP', 'TLS']  # Лист акций
+stocklist = ['KO', 'CVX', 'MCD', 'V', 'HPQ', 'MCO', 'DVA', 'KR', 'MCK', 'AON']  # Лист акций
 # # stock = [stock + '.AX' for stock in stocklist]
 
 endDate = dt2(2020, 12, 31)
 startDate = endDate - dt.timedelta(days=365)
 
 weight = np.array([0.3, 0.3, 0.4])
-meant, cov = get_data(stocklist, start=startDate, end=endDate)
+meant, cov = get_data(stocks=stocklist, start=startDate, end=endDate)
 
 
 # print(get_data(stocklist, startDate, endDate))
 
 # print(calculatedResults(meant, cov, 4))
 
-writer()
-
+# def fun(a):
+#     l = []
+#     for i in a:
+#         l.append(i)
+#
+#     c = l
+#     print(len(c))
+#     A_ub = [1, 1, 1, 1]
+#     B_ub = [100]
+#
+#
+#     return sc.linprog(c, A_ub, B_ub, A_eq, b_eq)
+#
+#
+# print(fun(meant))
+# print(meant)
+# a, b, c, d, e, f, g, h = calculatedResults(meant, cov, 4)
+# print(c)
+# print(f)
+calculatedResults(meant, cov, 4)
+# print(EF_graph(meant, cov))

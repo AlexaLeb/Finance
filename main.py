@@ -10,6 +10,18 @@ import openpyxl as xl
 
 yf.pdr_override()
 
+class Color:
+    """
+    Класс добавляет названия цветов для оформления вывода текста
+    """
+    DARKCYAN = '\033[36m'
+    BLUE = '\033[94m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    RED = '\033[91m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+    END = '\033[0m'
 
 def get_data(stocks, start, end):
     """
@@ -21,15 +33,31 @@ def get_data(stocks, start, end):
     """
     stockdata = pdr.get_data_yahoo(stocks, start=start, end=end)
     stockdata = stockdata['Close']  # Получили цены закрытия
-    df = pd.read_csv('United States 1-Year Bond Yield Historical Data.csv')  # Прочитали файл с данными по облигациям
-    # облигации не импортируются по тикетам к сожалению
-    df['Date'] = pd.to_datetime(df['Date'])
-    df = df.set_index(df['Date'])
-    df = df['Change %'].apply(lambda x: float(x[0:-1]) if "%" in x else float(x))  # убрали знак процента
+    files = ['United States 10-Year Bond Yield Historical Data.csv', 'Proshlye_dannye_po_SPY.csv']  # Список с нашими файлами
     returns = stockdata.pct_change()  # Получили дневную доходность
-    returns['Bonds'] = df
+
+
+    # # ETF
+    # df = pd.read_csv(files[1])  # Прочитали файл с данными по облигациям
+    # df['Дата'] = df['Дата'].apply(lambda x: x.replace('.', '/'))  # заменили точки на палочки
+    # df['Date'] = pd.to_datetime(df['Дата'], dayfirst=True)
+    # df = df.set_index(df['Date'])
+    # df = df['Изм. %'].apply(lambda x: x.replace(',', '.'))  # Заменили запятые на точки
+    # df = df.apply(lambda x: float(x[0:-1]) if "%" in x else float(x))  # убрали знак процента
+    # returns['ETF'] = df
+    #
+    # # Облигации
+    # df = pd.read_csv(files[0])  # Прочитали файл с данными по облигациям)  # заменили точки на палочки
+    # df['Date'] = pd.to_datetime(df['Date'])
+    # df = df.set_index(df['Date'])
+    # df = df['Change %'].apply(lambda x: float(x[0:-1]) if "%" in x else float(x))  # убрали знак процента
+    # returns['Bound'] = df
+
+
+    print(returns)
     mean = returns.mean()  # Получили среднее доходности
     covMatrix = returns.cov()  # Получили матрицу ковариации
+    print(mean, covMatrix)
     return mean, covMatrix
 
 
@@ -77,7 +105,7 @@ def maxPPerformance(meanReturns, covMatrix, riskFreeRate = 0, constraintSet=(0, 
     return result
 
 
-def negativeSR(weights, meanReturns, covMatrix, riskFreeRate = 4):
+def negativeSR(weights, meanReturns, covMatrix, riskFreeRate = 1):
     """
     В библиотеки scipy нет функции максимизации, зато есть функция минимизации. Так как мы хотим найти максимальный
     коэффициент Шарпа, то сначала мы сделаем его отрицательным, чтобы минимизировать отрицательный. Так мы найдем и
@@ -92,7 +120,7 @@ def negativeSR(weights, meanReturns, covMatrix, riskFreeRate = 4):
     return - (pReturns - riskFreeRate)/pStd
 
 
-def maxSRatio(meanReturns, covMatrix, riskFreeRate = 4, constraintSet=(0.04, 0.5)):
+def maxSRatio(meanReturns, covMatrix, riskFreeRate = 1, constraintSet=(0.04, 0.5)):
     """
     Минимизирует негативный К шарпа балансируя веса портфеля.
     :param meanReturns: средняя доходность активов.
@@ -142,7 +170,7 @@ def minimizeVariance(meanReturns, covMatrix, constraintSet=(0.04, 0.5)):
 # def negativeMSR(weights, meanReturns, covMatrix, riskFreeRate = 4):
 
 
-def calculatedResults(meanReturns, covMatrix, riskFreeRate=4, constraintSet=(0.04, 0.20)):
+def calculatedResults(meanReturns, covMatrix, riskFreeRate=1, constraintSet=(0.04, 0.20)):
     """
     Общая функция, которая вызывает остальные функции расчета, обрабатывает их результат
     :param meanReturns: средняя
@@ -159,33 +187,36 @@ def calculatedResults(meanReturns, covMatrix, riskFreeRate=4, constraintSet=(0.0
     7. Доходность промежуточных параметров для построения графика
     8. Валотильноость промежуточных параметров для построения графика
     """
-    print('Итог')
+    print(Color.BOLD + Color.BLUE + Color.UNDERLINE + 'Итог' + Color.END)
     # Максимальный к Шарпа
     maxSR_Portfolio = maxSRatio(meanReturns, covMatrix, riskFreeRate, constraintSet)
     maxSR_returns, maxSR_std = portfolioPerformance(maxSR_Portfolio['x'], meanReturns, covMatrix)
     maxSR_allocation = pd.DataFrame(maxSR_Portfolio['x'], index=meanReturns.index, columns=['allocation'])
     maxSR_allocation.allocation = [round(i * 100, 3) for i in maxSR_allocation.allocation]
-    print('\nМаксимальный к Шарпа, веса активов')
+    print(Color.GREEN + '\nМаксимальный к Шарпа, веса активов' + Color.END)
     print(maxSR_allocation)
-    print(f'доходность - {maxSR_returns}, волатильность - {maxSR_std}')
+    print(Color.DARKCYAN + '\nдоходность -' + Color.END, maxSR_returns,
+          Color.DARKCYAN +  'волатильность - ' + Color.END,  maxSR_std)
 
     # Минимальная волатильность
     minVol_Portfolio = minimizeVariance(meanReturns, covMatrix, constraintSet)
     minVol_returns, minVol_std = portfolioPerformance(minVol_Portfolio['x'], meanReturns, covMatrix)
     minVol_allocation = pd.DataFrame(minVol_Portfolio['x'], index=meanReturns.index, columns=['allocation'])
     minVol_allocation.allocation = [round(i * 100, 3) for i in minVol_allocation.allocation]
-    print('\nМинимальная волатильность')
+    print(Color.GREEN + '\nМинимальная волатильность, веса активов' + Color.END)
     print(minVol_allocation)
-    print(f'доходность - {minVol_returns}, волатильность - {minVol_std}')
+    print(Color.DARKCYAN + '\nдоходность -' + Color.END, maxSR_returns,
+          Color.DARKCYAN + 'волатильность - ' + Color.END, maxSR_std)
 
     # Максимальная доходность
     maxPerf_Portfolio = maxPPerformance(meanReturns, covMatrix, riskFreeRate, constraintSet)
     maxPerf_returns, maxPerf_std = portfolioPerformance(maxPerf_Portfolio['x'], meanReturns, covMatrix)
     maxPerf_allocation = pd.DataFrame(maxPerf_Portfolio['x'], index=meanReturns.index, columns=['allocation'])
     maxPerf_allocation.allocation = [round(i * 100, 0) for i in maxPerf_allocation.allocation]
-    print('\nМаксимальная доходность')
+    print(Color.GREEN + '\nМаксимальная доходность, веса активов' + Color.END)
     print(maxPerf_allocation)
-    print(f'доходность - {maxPerf_returns}, волатильность - {maxPerf_std}')
+    print(Color.DARKCYAN + '\nдоходность -' + Color.END, maxPerf_returns,
+          Color.DARKCYAN + 'волатильность - ' + Color.END, maxPerf_std)
 
     # Граница эффективности
     efficientList = []
@@ -214,7 +245,7 @@ def efficientOpt(meanReturns, covMatrix, returnTarget, constraintSet=(0, 1)):
     return effOpt
 
 
-def EF_graph(meanReturns, covMatrix, riskFreeRate=4, constraintSet=(0, 1)):
+def EF_graph(meanReturns, covMatrix, riskFreeRate=1, constraintSet=(0.04, 0.3)):
     """Строит границу эффективности"""
     maxSR_returns, maxSR_std, maxSR_allocation, minVol_returns, minVol_std, minVol_allocation, \
         maxPerf_returns, maxPerf_std, maxPerf_allocation, efficientList, targetReturns = \
@@ -223,27 +254,35 @@ def EF_graph(meanReturns, covMatrix, riskFreeRate=4, constraintSet=(0, 1)):
     MaxSharpeRatio = go.Scatter(
         name='Максимальный к Шарпа',
         mode='markers',
-        x=[round(100*maxSR_std, 4)],
-        y=[round(100*maxSR_returns, 4)],
+        x=[round(maxSR_std, 4)],
+        y=[round(maxSR_returns, 4)],
         marker=dict(color='red', size=14, line=dict(width=3, color='black'))
     )
     # Минимальная волатильность
     MinVol = go.Scatter(
         name='Минимальная волатильность',
         mode='markers',
-        x=[round(100 * minVol_std, 4)],
-        y=[round(100 * minVol_returns, 4)],
+        x=[round(minVol_std, 4)],
+        y=[round(minVol_returns, 4)],
         marker=dict(color='green', size=14, line=dict(width=3, color='black'))
+    )
+    # Максимальная доходность
+    MaxPP = go.Scatter(
+        name='Максимальная доходность',
+        mode='markers',
+        x=[round(maxPerf_std, 4)],
+        y=[round(maxPerf_returns, 4)],
+        marker=dict(color='blue', size=14, line=dict(width=3, color='black'))
     )
     # Граница эффективности
     EF_curve = go.Scatter(
         name='Граница эффективности',
         mode='lines',
-        x=[round(ef_std * 100, 4) for ef_std in efficientList],
-        y=[round(100 * target, 4) for target in targetReturns],
+        x=[round(ef_std, 4) for ef_std in efficientList],
+        y=[round(target, 4) for target in targetReturns],
         line=dict(color='black', width=4, dash='dashdot')
     )
-    data = [MaxSharpeRatio, MinVol, EF_curve]
+    data = [MaxSharpeRatio, MinVol, EF_curve, MaxPP]
     layout = go.Layout(
         title='Оптимизация портфеля с границей эффективности',
         yaxis=dict(title='Годовой доход (%)'),
@@ -260,34 +299,33 @@ def EF_graph(meanReturns, covMatrix, riskFreeRate=4, constraintSet=(0, 1)):
     fig = go.Figure(data=data, layout=layout)
     return fig.show()
 
-def writer():
-    """Функция записывает что-то в ексель файл, просто задел на будущее"""
-    book = xl.Workbook()
-    book.remove(book.active)
-
-    book.create_sheet('1')
-    book.create_sheet('2')
-    book.create_sheet('3')
-    a, b, c, d, e, f, g, h = calculatedResults(meant, cov, 4)
-    print(f)
-    for i in g:
-        i = float(i)
-    for i in h:
-        i = float(i)
-    l = [float(a), float(b), str(c), float(d), float(e), str(f)]
-    book.worksheets[0].append(l)
-    book.worksheets[1].append(list(g))
-    book.worksheets[2].append(list(h))
-
-    book.save('sample.xlsx')
+# def writer():
+#     """Функция записывает что-то в ексель файл, просто задел на будущее"""
+#     book = xl.Workbook()
+#     book.remove(book.active)
+#
+#     book.create_sheet('1')
+#     book.create_sheet('2')
+#     book.create_sheet('3')
+#     a, b, c, d, e, f, g, h = calculatedResults(meant, cov, 4)
+#     print(f)
+#     for i in g:
+#         i = float(i)
+#     for i in h:
+#         i = float(i)
+#     l = [float(a), float(b), str(c), float(d), float(e), str(f)]
+#     book.worksheets[0].append(l)
+#     book.worksheets[1].append(list(g))
+#     book.worksheets[2].append(list(h))
+#
+#     book.save('sample.xlsx')
 #
 stocklist = ['KO', 'CVX', 'MCD', 'V', 'HPQ', 'MCO', 'DVA', 'KR', 'MCK', 'AON']  # Лист акций
-# # stock = [stock + '.AX' for stock in stocklist]
 
 endDate = dt2(2020, 12, 31)
 startDate = endDate - dt.timedelta(days=365)
 
-weight = np.array([0.3, 0.3, 0.4])
+weight = 10 * [1./10]
 meant, cov = get_data(stocks=stocklist, start=startDate, end=endDate)
 
 
@@ -295,24 +333,18 @@ meant, cov = get_data(stocks=stocklist, start=startDate, end=endDate)
 
 # print(calculatedResults(meant, cov, 4))
 
-# def fun(a):
-#     l = []
-#     for i in a:
-#         l.append(i)
-#
-#     c = l
-#     print(len(c))
-#     A_ub = [1, 1, 1, 1]
-#     B_ub = [100]
-#
-#
-#     return sc.linprog(c, A_ub, B_ub, A_eq, b_eq)
-#
+#  Облигации
+df = pd.read_csv('Proshlye_dannye_-_S_amp_amp_P_500.csv')  # Прочитали файл с данными по облигациям
+df['Дата'] = df['Дата'].apply(lambda x: x.replace('.', '/'))  # заменили точки на палочки
+df['Date'] = pd.to_datetime(df['Дата'], dayfirst=True)
+df = df.set_index(df['Date'])
+df = df['Изм. %'].apply(lambda x: x.replace(',', '.'))  # Заменили запятые на точки
+market = df.apply(lambda x: float(x[0:-1]) if "%" in x else float(x))  # убрали знак процента
 #
 # print(fun(meant))
 # print(meant)
 # a, b, c, d, e, f, g, h = calculatedResults(meant, cov, 4)
 # print(c)
 # print(f)
-calculatedResults(meant, cov, 4)
-# print(EF_graph(meant, cov))
+calculatedResults(meant, cov, 1, (0.04, 0.25))
+# EF_graph(meant, cov, 4, (0.04, 0.20))

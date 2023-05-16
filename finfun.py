@@ -52,9 +52,10 @@ def get_data(stocks, start, end):
     df = df['Change %'].apply(lambda x: float(x[0:-1]) if "%" in x else float(x))  # убрали знак процента
     returns['Bound'] = df
 
+
     mean = returns.mean()  # Получили среднее доходности
     covMatrix = returns.cov()  # Получили матрицу ковариации
-    return mean, covMatrix
+    return mean, covMatrix, returns
 
 
 def portfolioPerformance(weights, meanReturns, covMatrix):
@@ -175,27 +176,34 @@ def minimizeVariance(meanReturns, covMatrix, constraintSet=(0.04, 0.5)):
     return result
 
 
-def negativeMSR(weights, meanReturns, covMatrix, riskFreeRate=1):
+def negativeMSR(weights, dataframe, meanReturns, covMatrix, riskFreeRate=1):
     """
     Считает модифицированный коэф шарпа и делает его отрицательным
+    :param dataframe
     :param weights:
     :param meanReturns:
     :param covMatrix:
     :param riskFreeRate:
     :return:
     """
+    dataframe['new'] = np.zeros(dataframe.shape[0])
+    for i in range(len(dataframe.columns) - 1):
+        dataframe['new'] += dataframe[dataframe.columns[i]] * weights[i]
     returns, std = portfolioPerformance(weights, meanReturns, covMatrix)
-    vol = std ** 2
+    data = dataframe['new'].dropna()
+    data = data.apply(lambda x: abs(x))
+    geom = scs.gmean(data)
+    vol = data.std()  # считаем волатильность
     z = scs.norm.ppf(0.99)    # Z оценка для 99% интервала
-    skew = scs.skew(meanReturns)
-    kurt = scs.kurtosis(meanReturns) - 1
+    skew = scs.skew(data)  # skewness
+    kurt = scs.kurtosis(data)  # Kurtosis
     zmvar = z + (1/6 * ((z ** 2) - 1) * skew) + (1/24 * ((z ** 3) - 3 * z) * kurt) - (1/36 * (2 * (z ** 3) - 5 * z) *
-                                                                                  skew ** 2)
-    mvar = meanReturns.mean() - zmvar * vol
-    msr = (returns - riskFreeRate) / mvar
+                                                                              skew ** 2)
+    mvar = geom - zmvar * vol
+    msr = (returns - riskFreeRate) / abs(mvar)
     return - msr
 
-def maxMSR(meanReturns, covMatrix, riskFreeRate=1, constraintSet=(0.04, 0.5)):
+def maxMSR(dataframe, meanReturns, covMatrix, riskFreeRate=1, constraintSet=(0.04, 0.5)):
     """
     Выдает веса для максимальногоо модифицироованного коэфициента шарпа
     :param meanReturns: средняя доходность
@@ -204,7 +212,7 @@ def maxMSR(meanReturns, covMatrix, riskFreeRate=1, constraintSet=(0.04, 0.5)):
     :return:
     """
     numAssets = len(meanReturns)
-    args = (meanReturns, covMatrix, riskFreeRate)
+    args = (dataframe, meanReturns, covMatrix, riskFreeRate)
     constraints = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
     bound = constraintSet
     bounds = tuple(gbound(bound, numAssets, asset) for asset in range(numAssets))
@@ -214,7 +222,7 @@ def maxMSR(meanReturns, covMatrix, riskFreeRate=1, constraintSet=(0.04, 0.5)):
     return result
 
 
-def calculatedResults(meanReturns, covMatrix, riskFreeRate=1, constraintSet=(0.04, 0.20)):
+def calculatedResults(dataframe, meanReturns, covMatrix, riskFreeRate=1, constraintSet=(0.04, 0.20)):
     """
     Общая функция, которая вызывает остальные функции расчета, обрабатывает их результат
     :param meanReturns: средняя
@@ -263,7 +271,7 @@ def calculatedResults(meanReturns, covMatrix, riskFreeRate=1, constraintSet=(0.0
           Color.DARKCYAN + 'волатильность - ' + Color.END, maxPerf_std)
 
     # Максимальный модифицированный коэффициент шарпа
-    maxMSRatio = maxMSR(meanReturns, covMatrix, riskFreeRate, constraintSet)
+    maxMSRatio = maxMSR(dataframe, meanReturns, covMatrix, riskFreeRate, constraintSet)
     maxMSR_return, maxMSR_std = portfolioPerformance(maxMSRatio['x'], meanReturns, covMatrix)
     maxMSR_allocation = pd.DataFrame(maxMSRatio['x'], index=meanReturns.index, columns=['allocation'])
     maxMSR_allocation.allocation = [round(i * 100, 3) for i in maxMSR_allocation.allocation]

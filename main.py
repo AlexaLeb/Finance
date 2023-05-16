@@ -9,9 +9,9 @@ endDate = dt2(2020, 12, 31)
 startDate = endDate - dt.timedelta(days=365)
 
 weight = np.ones(12)
-meant, cov = get_data(stocks=stocklist, start=startDate, end=endDate)
-
-
+meant, cov, returns = get_data(stocks=stocklist, start=startDate, end=endDate)
+# print(type(meant))
+# print(meant, cov)
 #  Индекс
 # df = pd.read_csv('Proshlye_dannye_-_S_amp_amp_P_500.csv')  # Прочитали файл с данными по облигациям
 # df['Дата'] = df['Дата'].apply(lambda x: x.replace('.', '/'))  # заменили точки на палочки
@@ -20,12 +20,14 @@ meant, cov = get_data(stocks=stocklist, start=startDate, end=endDate)
 # df = df['Изм. %'].apply(lambda x: x.replace(',', '.'))  # Заменили запятые на точки
 # market = df.apply(lambda x: float(x[0:-1]) if "%" in x else float(x))  # убрали знак процента
 
-
+# print(portfolioPerformance(weight, meant, cov))
 # print(fun(meant))
 # print(meant)
 # a, b, c, d, e, f, g, h = calculatedResults(meant, cov, 4)
 # print(c)
 # print(f)
-calculatedResults(meant, cov, 1, (0.05, 0.20))
+calculatedResults(returns, meant, cov, 1, (0.05, 0.20))
 # EF_graph(meant, cov, 1, (0.07, 0.20))
 # print(maxMSR(meant, cov, 4))
+
+# print(negativeMSR(returns, weight, meant, cov, 1))

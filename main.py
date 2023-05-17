@@ -31,3 +31,5 @@ calculatedResults(returns, meant, cov, 1, (0.05, 0.20))
 # print(maxMSR(meant, cov, 4))
 
 # print(negativeMSR(returns, weight, meant, cov, 1))
+
+# negativeCSR(weight, returns, meant, cov)

@@ -5,8 +5,8 @@ import plotly.graph_objects as go
 def EF_graph(meanReturns, covMatrix, riskFreeRate=1, constraintSet=(0.04, 0.3)):
     """Строит границу эффективности"""
     maxSR_returns, maxSR_std, maxSR_allocation, minVol_returns, minVol_std, minVol_allocation, maxPerf_returns, \
-        maxPerf_std, maxPerf_allocation, maxMSR_return, maxMSR_std, maxMSR_allocation, efficientList, targetReturns = \
-        calculatedResults(meanReturns, covMatrix, riskFreeRate, constraintSet)
+        maxPerf_std, maxPerf_allocation, maxMSR_return, maxMSR_std, maxMSR_allocation, maxCSR_return, maxCSR_std, \
+        maxCSR_allocation, efficientList, targetReturns = calculatedResults(meanReturns, covMatrix, riskFreeRate, constraintSet)
     # Максимальный к Шарпа
     MaxSharpeRatio = go.Scatter(
         name='Максимальный к Шарпа',

@@ -188,19 +188,21 @@ def negativeMSR(weights, dataframe, meanReturns, covMatrix, riskFreeRate=1):
     """
     dataframe['new'] = np.zeros(dataframe.shape[0])
     for i in range(len(dataframe.columns) - 1):
-        dataframe['new'] += dataframe[dataframe.columns[i]] * weights[i]
+        dataframe['new'] += dataframe[dataframe.columns[i]] * weights[i]  # Складываем произведение дневной
+        # доходности актива на его вес
     returns, std = portfolioPerformance(weights, meanReturns, covMatrix)
     data = dataframe['new'].dropna()
-    data = data.apply(lambda x: abs(x))
-    geom = scs.gmean(data)
+    data = data.apply(lambda x: abs(x))  # Находим взвешенную доходность портфелея по дням
+    geom = scs.gmean(data)  # Находим геометрическое среднее
     vol = data.std()  # считаем волатильность
     z = scs.norm.ppf(0.99)    # Z оценка для 99% интервала
-    skew = scs.skew(data)  # skewness
-    kurt = scs.kurtosis(data)  # Kurtosis
+    skew = scs.skew(data)  # skewness Ассиметрия (смещение распределения)
+    kurt = scs.kurtosis(data)  # Kurtosis  Экцесс (выпуклость графика)
     zmvar = z + (1/6 * ((z ** 2) - 1) * skew) + (1/24 * ((z ** 3) - 3 * z) * kurt) - (1/36 * (2 * (z ** 3) - 5 * z) *
                                                                               skew ** 2)
-    mvar = geom - zmvar * vol
-    msr = (returns - riskFreeRate) / abs(mvar)
+    # Считаем z оценку для модифицированной стоимостной оценки риска
+    mvar = geom - zmvar * vol  # Находим модифицированную стоимостную оценку риска
+    msr = (returns - riskFreeRate) / abs(mvar)  # Находим модифицированный коэффициент шарпа
     return - msr
 
 def maxMSR(dataframe, meanReturns, covMatrix, riskFreeRate=1, constraintSet=(0.04, 0.5)):
@@ -211,15 +213,56 @@ def maxMSR(dataframe, meanReturns, covMatrix, riskFreeRate=1, constraintSet=(0.0
     :param constraintSet: параметрр для решения уравнения
     :return:
     """
-    numAssets = len(meanReturns)
-    args = (dataframe, meanReturns, covMatrix, riskFreeRate)
+    numAssets = len(meanReturns)  # Находим количество членов уравнения
+    args = (dataframe, meanReturns, covMatrix, riskFreeRate)  # Задаем аргументы для функции
     constraints = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
-    bound = constraintSet
-    bounds = tuple(gbound(bound, numAssets, asset) for asset in range(numAssets))
+    bound = constraintSet  # Задаем ограничения для основного массива активов
+    bounds = tuple(gbound(bound, numAssets, asset) for asset in range(numAssets))  #
     # noinspection PyTypeChecker
     result = sco.minimize(negativeMSR, numAssets * [1. / numAssets], args=args, method='SLSQP', bounds=bounds,
                           constraints=constraints)
     return result
+
+
+def negativeCSR(weights, dataframe, mean, cov, riskFreeRate=1):
+    """
+    Расчитывает отрицательный коэффициент шарпа при условной стоимости под риском
+    :param weights: веса
+    :param dataframe: данные с доходностями активов по дням
+    :param mean: средняя доходность актива за период
+    :param cov: ковариационная матрица активов
+    :param riskFreeRate: безрисковая ставка
+    :return:
+    """
+    dataframe['new'] = np.zeros(dataframe.shape[0])
+    for i in range(len(dataframe.columns) - 1):
+        dataframe['new'] += dataframe[dataframe.columns[i]] * weights[i]  # Складываем произведение дневной
+        # доходности актива на его вес
+    returns, std = portfolioPerformance(weights, mean, cov)
+    data = dataframe['new'].dropna()
+    data = data.apply(lambda x: abs(x))  # Находим взвешенную доходность портфелея по дням
+    cvar = np.percentile(data, 1) * 100  # Условная стоимость под риском или ожидаемый дефицит
+    csr = (returns - riskFreeRate) / abs(cvar)
+    return - csr
+
+def maxCSR(dataframe, meanReturns, covMatrix, riskFreeRate=1, constraintSet=(0.04, 0.5)):
+    """
+    Выдает веса для коэффициент шарпа при условной стоимости под риском.
+    :param meanReturns: средняя доходность
+    :param covMatrix: матрица ковариации
+    :param constraintSet: параметрр для решения уравнения
+    :return:
+    """
+    numAssets = len(meanReturns)  # Находим количество членов уравнения
+    args = (dataframe, meanReturns, covMatrix, riskFreeRate)  # Задаем аргументы для функции
+    constraints = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
+    bound = constraintSet  # Задаем ограничения для основного массива активов
+    bounds = tuple(gbound(bound, numAssets, asset) for asset in range(numAssets))  #
+    # noinspection PyTypeChecker
+    result = sco.minimize(negativeCSR, numAssets * [1. / numAssets], args=args, method='SLSQP', bounds=bounds,
+                          constraints=constraints)
+    return result
+
 
 
 def calculatedResults(dataframe, meanReturns, covMatrix, riskFreeRate=1, constraintSet=(0.04, 0.20)):
@@ -270,6 +313,16 @@ def calculatedResults(dataframe, meanReturns, covMatrix, riskFreeRate=1, constra
     print(Color.DARKCYAN + '\nдоходность -' + Color.END, maxPerf_returns,
           Color.DARKCYAN + 'волатильность - ' + Color.END, maxPerf_std)
 
+    # Максимальный коэффициент шарпа при условной стоимости под риском.
+    maxCSRatio = maxCSR(dataframe, meanReturns, covMatrix, riskFreeRate, constraintSet)
+    maxCSR_return, maxCSR_std = portfolioPerformance(maxCSRatio['x'], meanReturns, covMatrix)
+    maxCSR_allocation = pd.DataFrame(maxCSRatio['x'], index=meanReturns.index, columns=['allocation'])
+    maxCSR_allocation.allocation = [round(i * 100, 3) for i in maxCSR_allocation.allocation]
+    print(Color.GREEN + '\nМаксимальный коэффициент шарпа при условной стоимости под риском., веса активов' + Color.END)
+    print(maxCSR_allocation)
+    print(Color.DARKCYAN + '\nдоходность -' + Color.END, maxCSR_return,
+          Color.DARKCYAN + 'волатильность - ' + Color.END, maxCSR_std)
+
     # Максимальный модифицированный коэффициент шарпа
     maxMSRatio = maxMSR(dataframe, meanReturns, covMatrix, riskFreeRate, constraintSet)
     maxMSR_return, maxMSR_std = portfolioPerformance(maxMSRatio['x'], meanReturns, covMatrix)
@@ -288,7 +341,8 @@ def calculatedResults(dataframe, meanReturns, covMatrix, riskFreeRate=1, constra
 
     # Возвращения функции
     return maxSR_returns, maxSR_std, maxSR_allocation, minVol_returns, minVol_std, minVol_allocation, maxPerf_returns, \
-        maxPerf_std, maxPerf_allocation, maxMSR_return, maxMSR_std, maxMSR_allocation, efficientList, targetReturns
+        maxPerf_std, maxPerf_allocation, maxMSR_return, maxMSR_std, maxMSR_allocation, maxCSR_return, maxCSR_std, \
+        maxCSR_allocation, efficientList, targetReturns
 
 
 def portfolioReturn(weights, meanReturns, covMatrix):

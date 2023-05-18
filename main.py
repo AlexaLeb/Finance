@@ -30,7 +30,7 @@ print(market_r, market_std)
 # print(c)
 # print(f)
 # calculatedResults(returns, meant, cov, 1, (0.05, 0.20))
-EF_graph(returns, meant, cov, 1, (0.07, 0.20))
+EF_graph(returns, meant, cov, market_r, market_std, 1, (0.07, 0.20))
 # print(maxMSR(meant, cov, 4))
 
 # print(negativeMSR(returns, weight, meant, cov, 1))

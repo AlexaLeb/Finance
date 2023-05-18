@@ -2,7 +2,7 @@ from finfun import calculatedResults
 import plotly.graph_objects as go
 
 
-def EF_graph(returns, meanReturns, covMatrix, riskFreeRate=1, constraintSet=(0.04, 0.3)):
+def EF_graph(returns, meanReturns, covMatrix, marketr, markets, riskFreeRate=1, constraintSet=(0.04, 0.3)):
     """Строит границу эффективности"""
     maxSR_returns, maxSR_std, maxSR_allocation, minVol_returns, minVol_std, minVol_allocation, maxPerf_returns, \
         maxPerf_std, maxPerf_allocation, maxMSR_return, maxMSR_std, maxMSR_allocation, maxCSR_return, maxCSR_std, \
@@ -39,6 +39,14 @@ def EF_graph(returns, meanReturns, covMatrix, riskFreeRate=1, constraintSet=(0.0
         y=[round(maxMSR_return, 4)],
         marker=dict(color='yellow', size=14, line=dict(width=3, color='black'))
     )
+    # Рынок.
+    Market = go.Scatter(
+        name='Рынок',
+        mode='markers',
+        x=[round(markets, 4)],
+        y=[round(marketr, 4)],
+        marker=dict(color='indigo', size=14, line=dict(width=3, color='black'))
+    )
     # Максимальный коэффициент шарпа при условной стоимости под риском.
     MaxCSR = go.Scatter(
         name='Максимальный коэффициент шарпа при условной стоимости под риском',
@@ -55,7 +63,7 @@ def EF_graph(returns, meanReturns, covMatrix, riskFreeRate=1, constraintSet=(0.0
         y=[round(target, 4) for target in targetReturns],
         line=dict(color='black', width=4, dash='dashdot')
     )
-    data = [MaxSharpeRatio, MinVol, EF_curve, MaxPP, MaxMSR, MaxCSR]
+    data = [MaxSharpeRatio, MinVol, EF_curve, MaxPP, MaxMSR, MaxCSR, Market]
     layout = go.Layout(
         title='Оптимизация портфеля с границей эффективности',
         yaxis=dict(title='Годовой доход (%)'),

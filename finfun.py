@@ -282,12 +282,13 @@ def calculatedResults(dataframe, meanReturns, covMatrix, riskFreeRate=1, constra
     7. Доходность промежуточных параметров для построения графика
     8. Валотильноость промежуточных параметров для построения графика
     """
+
     print(Color.BOLD + Color.BLUE + Color.UNDERLINE + 'Итог' + Color.END)
     # Максимальный к Шарпа
     maxSR_Portfolio = maxSRatio(meanReturns, covMatrix, riskFreeRate, constraintSet)
     maxSR_returns, maxSR_std = portfolioPerformance(maxSR_Portfolio['x'], meanReturns, covMatrix)
-    maxSR_allocation = pd.DataFrame(maxSR_Portfolio['x'], index=meanReturns.index, columns=['allocation'])
-    maxSR_allocation.allocation = [round(i * 100, 3) for i in maxSR_allocation.allocation]
+    maxSR_allocation = pd.DataFrame(maxSR_Portfolio['x'], index=meanReturns.index, columns=['вес в %'])
+    maxSR_allocation['вес в %'] = [round(i * 100, 3) for i in maxSR_allocation['вес в %']]
     print(Color.GREEN + '\nМаксимальный к Шарпа, веса активов' + Color.END)
     print(maxSR_allocation)
     print(Color.DARKCYAN + '\nдоходность -' + Color.END, maxSR_returns,
@@ -296,8 +297,8 @@ def calculatedResults(dataframe, meanReturns, covMatrix, riskFreeRate=1, constra
     # Минимальная волатильность
     minVol_Portfolio = minimizeVariance(meanReturns, covMatrix, constraintSet)
     minVol_returns, minVol_std = portfolioPerformance(minVol_Portfolio['x'], meanReturns, covMatrix)
-    minVol_allocation = pd.DataFrame(minVol_Portfolio['x'], index=meanReturns.index, columns=['allocation'])
-    minVol_allocation.allocation = [round(i * 100, 3) for i in minVol_allocation.allocation]
+    minVol_allocation = pd.DataFrame(minVol_Portfolio['x'], index=meanReturns.index, columns=['вес в %'])
+    minVol_allocation['вес в %'] = [round(i * 100, 3) for i in minVol_allocation['вес в %']]
     print(Color.GREEN + '\nМинимальная волатильность, веса активов' + Color.END)
     print(minVol_allocation)
     print(Color.DARKCYAN + '\nдоходность -' + Color.END, minVol_returns,
@@ -306,8 +307,8 @@ def calculatedResults(dataframe, meanReturns, covMatrix, riskFreeRate=1, constra
     # Максимальная доходность
     maxPerf_Portfolio = maxPPerformance(meanReturns, covMatrix, constraintSet)
     maxPerf_returns, maxPerf_std = portfolioPerformance(maxPerf_Portfolio['x'], meanReturns, covMatrix)
-    maxPerf_allocation = pd.DataFrame(maxPerf_Portfolio['x'], index=meanReturns.index, columns=['allocation'])
-    maxPerf_allocation.allocation = [round(i * 100, 3) for i in maxPerf_allocation.allocation]
+    maxPerf_allocation = pd.DataFrame(maxPerf_Portfolio['x'], index=meanReturns.index, columns=['вес в %'])
+    maxPerf_allocation['вес в %'] = [round(i * 100, 3) for i in maxPerf_allocation['вес в %']]
     print(Color.GREEN + '\nМаксимальная доходность, веса активов' + Color.END)
     print(maxPerf_allocation)
     print(Color.DARKCYAN + '\nдоходность -' + Color.END, maxPerf_returns,
@@ -316,8 +317,8 @@ def calculatedResults(dataframe, meanReturns, covMatrix, riskFreeRate=1, constra
     # Максимальный коэффициент шарпа при условной стоимости под риском.
     maxCSRatio = maxCSR(dataframe, meanReturns, covMatrix, riskFreeRate, constraintSet)
     maxCSR_return, maxCSR_std = portfolioPerformance(maxCSRatio['x'], meanReturns, covMatrix)
-    maxCSR_allocation = pd.DataFrame(maxCSRatio['x'], index=meanReturns.index, columns=['allocation'])
-    maxCSR_allocation.allocation = [round(i * 100, 3) for i in maxCSR_allocation.allocation]
+    maxCSR_allocation = pd.DataFrame(maxCSRatio['x'], index=meanReturns.index, columns=['вес в %'])
+    maxCSR_allocation['вес в %'] = [round(i * 100, 3) for i in maxCSR_allocation['вес в %']]
     print(Color.GREEN + '\nМаксимальный коэффициент шарпа при условной стоимости под риском., веса активов' + Color.END)
     print(maxCSR_allocation)
     print(Color.DARKCYAN + '\nдоходность -' + Color.END, maxCSR_return,
@@ -326,12 +327,35 @@ def calculatedResults(dataframe, meanReturns, covMatrix, riskFreeRate=1, constra
     # Максимальный модифицированный коэффициент шарпа
     maxMSRatio = maxMSR(dataframe, meanReturns, covMatrix, riskFreeRate, constraintSet)
     maxMSR_return, maxMSR_std = portfolioPerformance(maxMSRatio['x'], meanReturns, covMatrix)
-    maxMSR_allocation = pd.DataFrame(maxMSRatio['x'], index=meanReturns.index, columns=['allocation'])
-    maxMSR_allocation.allocation = [round(i * 100, 3) for i in maxMSR_allocation.allocation]
+    maxMSR_allocation = pd.DataFrame(maxMSRatio['x'], index=meanReturns.index, columns=['вес в %'])
+    maxMSR_allocation['вес в %'] = [round(i * 100, 3) for i in maxMSR_allocation['вес в %']]
     print(Color.GREEN + '\nМаксимальный модифицированный коэффициент шарпа, веса активов' + Color.END)
     print(maxMSR_allocation)
     print(Color.DARKCYAN + '\nдоходность -' + Color.END, maxMSR_return,
           Color.DARKCYAN + 'волатильность - ' + Color.END, maxMSR_std)
+
+    with open('results.txt', 'w') as file:
+        print('Итог', file=file)
+
+        print('\nМаксимальный к Шарпа, веса активов', file=file)
+        print(maxSR_allocation, file=file)
+        print('\nдоходность -', round(maxSR_returns, 3), 'волатильность - ', round(maxSR_std, 3), file=file)
+
+        print('\nМинимальная волатильность, веса активов', file=file)
+        print(minVol_allocation, file=file)
+        print('\nдоходность -', round(minVol_returns, 3), 'волатильность - ', round(minVol_std, 3), file=file)
+
+        print('\nМаксимальная доходность, веса активов', file=file)
+        print(maxPerf_allocation, file=file)
+        print('\nдоходность -', round(maxPerf_returns, 3), 'волатильность - ', round(maxPerf_std, 3), file=file)
+
+        print('\nМаксимальный коэффициент шарпа при условной стоимости под риском., веса активов', file=file)
+        print(maxCSR_allocation, file=file)
+        print('\nдоходность -', round(maxCSR_return, 3),'волатильность - ', round(maxCSR_std, 3), file=file)
+
+        print('\nМаксимальный модифицированный коэффициент шарпа, веса активов', file=file)
+        print(maxMSR_allocation, file=file)
+        print('\nдоходность -', round(maxMSR_return, 3), 'волатильность - ', round(maxMSR_std, 3), file=file)
 
     # Граница эффективности
     efficientList = []
@@ -365,23 +389,3 @@ def efficientOpt(meanReturns, covMatrix, returnTarget, constraintSet=(0, 0.3)):
 
 
 
-# def writer():
-#     """Функция записывает что-то в ексель файл, просто задел на будущее"""
-#     book = xl.Workbook()
-#     book.remove(book.active)
-#
-#     book.create_sheet('1')
-#     book.create_sheet('2')
-#     book.create_sheet('3')
-#     a, b, c, d, e, f, g, h = calculatedResults(meant, cov, 4)
-#     print(f)
-#     for i in g:
-#         i = float(i)
-#     for i in h:
-#         i = float(i)
-#     l = [float(a), float(b), str(c), float(d), float(e), str(f)]
-#     book.worksheets[0].append(l)
-#     book.worksheets[1].append(list(g))
-#     book.worksheets[2].append(list(h))
-#
-#     book.save('sample.xlsx')

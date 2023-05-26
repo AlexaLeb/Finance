@@ -357,11 +357,12 @@ def calculatedResults(dataframe, meanReturns, covMatrix, riskFreeRate=1, constra
         print(maxMSR_allocation, file=file)
         print('\nдоходность -', round(maxMSR_return, 3), 'волатильность - ', round(maxMSR_std, 3), file=file)
 
-    # Граница эффективности
-    efficientList = []
-    targetReturns = np.linspace(minVol_returns, maxPerf_returns, 20)
-    for target in targetReturns:
-        efficientList.append(efficientOpt(meanReturns, covMatrix, target, constraintSet)['fun'])
+
+    # print(efficientList)
+    targetReturns = (maxPerf_returns - minVol_returns) * np.random.random_sample(50) + minVol_returns
+    efficientList = (maxPerf_std - minVol_std) * np.random.random_sample(50) + minVol_std
+    # print(targetReturns)
+    # print(efficientList)
 
     # Возвращения функции
     return maxSR_returns, maxSR_std, maxSR_allocation, minVol_returns, minVol_std, minVol_allocation, maxPerf_returns, \
@@ -388,4 +389,79 @@ def efficientOpt(meanReturns, covMatrix, returnTarget, constraintSet=(0, 0.3)):
     return effOpt
 
 
+def JensensAlpha(rp, rf, rm, b):
+    """
+    Считает Альфу Йенса
+    :param rp: portfolio return
+    :param rf: risk-free rate
+    :param rm: expected market return
+    :param b: portfolio beta
+    :return:
+    """
+    coeffJensensAlpha = rp - (rf + b*(rm - rf))
+    return coeffJensensAlpha
+
+def Treynor(rp, rf, b):
+    """
+    Считает коэффициент Тейнора
+    :param rp: - portfolio return
+    :param rf: - risk-free rate
+    :param b: - portfolio beta
+    :return:
+    """
+    coeffTreynor = (rp - rf) / b
+    return coeffTreynor
+
+def Beta(ra, rp):
+    """
+    Находит Бетта коэфициент
+    :param ra: - доходность оцениваемого актива
+    :param rp: - доходность индекса
+    :return:
+    """
+    coeffBeta = (np.cov(ra, rp)) / (np.std(ra, rp))
+    return coeffBeta
+
+class Portfolio:
+    def __init__(self, ra, cov, weights, rp, std, mean, rf):
+        self.ra = ra
+        self.cov = cov
+        self.weights = weights
+        self.betta = self.Beta()
+        self.rp = rp
+        self.std = std
+        self.mean = mean
+        self.rf = rf
+    def JensensAlpha(self, rp, rf, rm, b):
+        """
+        Считает Альфу Йенса
+        :param rp: portfolio return
+        :param rf: risk-free rate
+        :param rm: expected market return
+        :param b: portfolio beta
+        :return:
+        """
+        coeffJensensAlpha = self.rp - (self.rf + self.betta * (rm - rf))
+        return coeffJensensAlpha
+
+    def Treynor(self, rp, rf, b):
+        """
+        Считает коэффициент Тейнора
+        :param rp: - portfolio return
+        :param rf: - risk-free rate
+        :param b: - portfolio beta
+        :return:
+        """
+        coeffTreynor = (rp - rf) / b
+        return coeffTreynor
+
+    def Beta(self):
+        """
+        Находит Бетта коэфициент
+        :param ra: - доходность оцениваемого актива
+        :param rp: - доходность индекса
+        :return:
+        """
+        coeffBeta = (np.cov(self.ra, self.rp)) / (np.std(self.rp))
+        return coeffBeta
 

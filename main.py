@@ -7,62 +7,51 @@ stocklist = ['V', 'DVA', 'HPQ', 'MCK', 'AON', 'MCO', 'KR', 'PFE', 'CVX', 'KO']  
 # stocklist = ['KO', 'CVX', 'MCD', 'V', 'HPQ', 'MCO', 'DVA', 'KR', 'MCK', 'AON']
 endDate = dt2(2020, 12, 31)
 startDate = endDate - dt.timedelta(days=365)
-weight = np.ones(12)
 meant, cov, returns = get_data(stocks=stocklist, start=startDate, end=endDate)
 print(meant)
 print(returns)
-
-
-def market(start, end):
-    df = pd.read_csv('NYSE Composite Historical Data.csv')  # Прочитали файл с данными по облигациям
-    df['Date'] = df['Date'].apply(lambda x: x.replace('.', '/'))  # заменили точки на палочки
-    df['Date'] = pd.to_datetime(df['Date'])
-    df = df.set_index(df['Date'])
-    df = df[(df.Date > start) & (df.Date < end)]
-    df = df['Price'].apply(lambda x: x.replace(',', ''))  # Заменили запятые на точки
-    markets = df.apply(lambda x: float(x[0:-1]) if "%" in x else float(x))  # убрали знак процента
-    lis = []
-    for i in range(len(markets)):
-        if i == 0:
-            pass
-        else:
-            x = np.log(markets[i] / markets[i - 1])
-            lis.append(x)
-    x = np.array(lis)
-    market_m = x.mean()  # Годовая доходность рынка
-    market_m = ((1 + market_m) ** 252) - 1
-    market_var = x.var()
-    return market_m, market_var, x
-
-
-def bill_rate_mean(file):
-    df = pd.read_csv(file)
-    df['Date'] = pd.to_datetime(df['Date'])
-    df = df.set_index(df['Date'])
-    df = df['52 WEEKS BANK DISCOUNT']
-    rates = []
-    for i in range(len(df)):
-        if i == 0:
-            pass
-        else:
-            x = np.log(df[i] / df[i-1])
-            rates.append(x)
-    x = np.array(rates)
-    return x.mean()
-
 
 bill2020 = bill_rate_mean('daily-treasury-rates.csv')
 bill2021 = bill_rate_mean('daily-treasury-rates-2.csv')
 bill2022 = bill_rate_mean('daily-treasury-rates-3.csv')
 list_of_bills = [bill2020, bill2021, bill2022]
 market_m, market_var, df = market(startDate, endDate)
-print(market_m, market_var)
-print()
+# print(market_m, market_var)
+# print()
 print('годовая доходность')
 for i in meant:
     print(((1 + i) ** 252 - 1) * 1)
-calculatedResults(dataframe=returns, meanReturns=meant, covMatrix=cov, riskFreeRate=(bill2020), dfm=df,
+list_by_calc = calculatedResults(dataframe=returns, meanReturns=meant, covMatrix=cov, riskFreeRate=(bill2020), dfm=df,
                   constraintSet=(0.05, 0.25), rm=market_m, mvar=market_var)
-# EF_graph(returns, meant, cov, 1, (0.05, 0.20))
+
+di = {
+    'SR ratio': [list_by_calc[0], list_by_calc[1], list_by_calc[2]],
+    'Min vol': [list_by_calc[3], list_by_calc[4], list_by_calc[5]],
+    'Max PP': [list_by_calc[6], list_by_calc[7], list_by_calc[8]],
+    'Max MSR': [list_by_calc[9], list_by_calc[10], list_by_calc[11]],
+    'Max CSR': [list_by_calc[12],list_by_calc[13], list_by_calc[14]]
+}
+
+print(Color.BOLD + Color.GREEN + 'Выберите портфель и введите его номер, чтобы узнать его показатели за 2021 и 2022' + Color.END)
+x = int(input('Поле ввода: '))
+if x == 1:
+    conclude(di['SR ratio'][2], 2021, bill2021, stocklist, list(di.keys())[0])
+    conclude(di['SR ratio'][2], 2022, bill2021, stocklist, list(di.keys())[0])
+elif x == 2:
+    conclude(di['Min vol'][2], 2021, bill2021, stocklist, list(di.keys())[1])
+    conclude(di['Min vol'][2], 2022, bill2021, stocklist, list(di.keys())[1])
+elif x == 3:
+    conclude(di['Max PP'][2], 2021, bill2021, stocklist, list(di.keys())[2])
+    conclude(di['Max PP'][2], 2022, bill2021, stocklist, list(di.keys())[2])
+elif x == 4:
+    conclude(di['Max MSR'][2], 2021, bill2021, stocklist, list(di.keys())[3])
+    conclude(di['Max MSR'][2], 2022, bill2021, stocklist, list(di.keys())[3])
+elif x == 5:
+    conclude(di['Max CSR'][2], 2021, bill2021, stocklist, list(di.keys())[4])
+    conclude(di['Max CSR'][2], 2022, bill2021, stocklist, list(di.keys())[4])
+else:
+    print(Color.RED + Color.BOLD + 'ОШИБКА' + Color.END)
+
+
 
 

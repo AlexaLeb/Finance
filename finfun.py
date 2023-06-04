@@ -4,7 +4,8 @@ import yfinance as yf
 from pandas_datareader import data as pdr
 import scipy.optimize as sco
 import scipy.stats as scs
-# import openpyxl as xl
+import datetime as dt
+from datetime import datetime as dt2
 
 yf.pdr_override()
 
@@ -21,6 +22,44 @@ class Color:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
     END = '\033[0m'
+
+
+def market(start, end):
+    df = pd.read_csv('NYSE Composite Historical Data.csv')  # Прочитали файл с данными по облигациям
+    df['Date'] = df['Date'].apply(lambda x: x.replace('.', '/'))  # заменили точки на палочки
+    df['Date'] = pd.to_datetime(df['Date'])
+    df = df.set_index(df['Date'])
+    df = df[(df.Date > start) & (df.Date < end)]
+    df = df['Price'].apply(lambda x: x.replace(',', ''))  # Заменили запятые на точки
+    markets = df.apply(lambda x: float(x[0:-1]) if "%" in x else float(x))  # убрали знак процента
+    lis = []
+    for i in range(len(markets)):
+        if i == 0:
+            pass
+        else:
+            x = np.log(markets[i] / markets[i - 1])
+            lis.append(x)
+    x = np.array(lis)
+    market_m = x.mean()  # Годовая доходность рынка
+    market_m = ((1 + market_m) ** 252) - 1
+    market_var = x.var()
+    return market_m, market_var, x
+
+
+def bill_rate_mean(file):
+    df = pd.read_csv(file)
+    df['Date'] = pd.to_datetime(df['Date'])
+    df = df.set_index(df['Date'])
+    df = df['52 WEEKS BANK DISCOUNT']
+    rates = []
+    for i in range(len(df)):
+        if i == 0:
+            pass
+        else:
+            x = np.log(df[i] / df[i-1])
+            rates.append(x)
+    x = np.array(rates)
+    return x.mean()
 
 
 def get_data(stocks, start, end):
@@ -44,12 +83,17 @@ def get_data(stocks, start, end):
     df = df.apply(lambda x: float(x[0:-1]) if "%" in x else float(x))  # убрали знак процента
     stockdata['ETF'] = df
 
-    df = pd.read_csv(files[0])
-    df['Date'] = pd.to_datetime(df['Date'])
-    df = df.set_index(df['Date'])
-    df = df['52 WEEKS BANK DISCOUNT'].apply(lambda x: x / 1000)
-    stockdata['Bounds'] = df
-    # # подвал с девочками
+    # df = pd.read_csv(files[0])
+    # df['Date'] = pd.to_datetime(df['Date'])
+    # df = df.set_index(df['Date'])
+    # df['52 WEEKS BANK DISCOUNT'] = df['52 WEEKS BANK DISCOUNT'].apply(lambda x: x / 100)
+    # df['indeX'] = np.arange(len(stockdata) - 1)
+    # df = df[['52 WEEKS BANK DISCOUNT', 'indeX']]
+    # df = df.set_index(df['indeX'])
+    # print(df)
+
+    #
+
     stockdata = stockdata.dropna()
     for i in range(len(stockdata.columns)):
         li = []
@@ -62,9 +106,12 @@ def get_data(stocks, start, end):
                 li.append(x)
         result[stockdata.columns[i]] = li
 
-    result['Bounds'] = df.mean()
+    # result['Bounds'] = df['52 WEEKS BANK DISCOUNT']
+    # print('bonds')
+    # print(df)
+    # print(df.mean(), 'mean')
     mean = result.mean()  # Получили среднее доходности
-    # mean[-1] = - mean[-1] / 10
+    mean[-1] = - mean[-1]
     covMatrix = result.cov()  # Получили матрицу ковариации
     return mean, covMatrix, result
 
@@ -211,7 +258,7 @@ def negativeMSR(weights, dataframe, meanReturns, covMatrix, riskFreeRate=1):
     vol = data.std()  # считаем волатильность
     z = scs.norm.ppf(0.99)    # Z оценка для 99% интервала
     skew = scs.skew(data)  # skewness Ассиметрия (смещение распределения)
-    kurt = scs.kurtosis(data)  # Kurtosis  Экцесс (выпуклость графика)
+    kurt = scs.kurtosis(data)  # Kurtosis Экцесс (выпуклость графика)
     zmvar = z + (1/6 * ((z ** 2) - 1) * skew) + (1/24 * ((z ** 3) - 3 * z) * kurt) - (1/36 * (2 * (z ** 3) - 5 * z) *
                                                                               skew ** 2)
     # Считаем z оценку для модифицированной стоимостной оценки риска
@@ -334,6 +381,8 @@ def calculatedResults(dataframe, meanReturns, covMatrix, dfm, riskFreeRate=1,  c
     maxMSR_allocation['вес в %'] = [round(i * 100, 3) for i in maxMSR_allocation['вес в %']]
     printer(maxMSRatio['x'], riskFreeRate, rm, mvar, 'Максимальный модифицированный коэффициент шарпа', dataframe, meanReturns, covMatrix, dfm, maxMSR_allocation)
 
+
+
     with open('results.txt', 'w') as file:
         print('Итог', file=file)
 
@@ -447,25 +496,20 @@ def Treynor(rp, rf, b):
 
 def beta(dataframe, weight, rm, mvar, dfm):
     """
-    Бетта коэфициент
-    :param ra: - доходность оцениваемого актива
-    :param rp: - доходность индекса
-    :return:
+    Бетта коэффициент
     """
+    if len(dataframe) > len(dfm):
+        dataframe = dataframe[(len(dataframe)-len(dfm)):]
     l = []
     betta = []
-    w = []
     for i in range(len(dataframe.columns)):
-        print(dataframe[dataframe.columns[i]])
-        print(dfm)
-        cova = dataframe[dataframe.columns[i]].cov(dfm)
-        cova = cova / ((mvar ** 2) / 100)
-        print(cova)
+        ar = dataframe[dataframe.columns[i]].to_numpy()
+        cova = np.cov(ar, dfm)[0][1]
+        cova = cova / mvar
         l.append(cova)
     for i in range(len(l)):
         betta.append(l[i] * weight[i])
     beta = sum(betta)
-    print('betta', beta)
     return beta
 
 def M2(rp, rf, pstd, mstd, rm):
@@ -478,21 +522,37 @@ def M2(rp, rf, pstd, mstd, rm):
     :param rm: доходность индекса
     :return:
     """
-    return ((rp - rf) * mstd ** 2) / pstd ** 2 - (rm - rf)
+    return (((rp - rf) * np.sqrt(mstd)) / pstd) - (rm - rf)
 
 def printer(allocation, rf, rm, mvar, str, dataframe, mean, cov, dfm, view, file=None):
     print(Color.BOLD + Color.GREEN + 'Показатели' + Color.END)
     print(Color.GREEN + '\n' + str + ', веса активов' + Color.END)
     print(view)
-    # b = beta(dataframe, allocation, rm, mvar, dfm)
     nrp = portfolioReturn(allocation, meanReturns=mean, covMatrix=cov, dataframe=dataframe)
     nvr = portfolioVariance(allocation, mean, cov, dataframe)
-    print(Color.DARKCYAN + '\nдоходность -' + Color.END, nrp * 100)
-    print(Color.DARKCYAN + 'волатильность - ' + Color.END, nvr * 100)
-    print(Color.DARKCYAN + 'коэффициент Шарпа - ' + Color.END, ((nrp - rf)/nvr))
-    print(Color.DARKCYAN + 'модифицированный коэффициент Шарпа - ' + Color.END, - negativeMSR(allocation, dataframe, mean, cov, rf))
-    print(Color.DARKCYAN + 'кондиционный коэффициент Шарпа - ' + Color.END, - negativeCSR(allocation, dataframe, mean, cov, rf))
-    # print(Color.DARKCYAN + 'коэффициент Тейнора - ' + Color.END, Treynor(rp, rf, b))
-    # print(Color.DARKCYAN + 'Альфа Йенса - ' + Color.END, JensensAlpha(rp, rf, rm, b))
-    print(Color.DARKCYAN + 'M2 - ' + Color.END, M2(nrp, rf, nvr, mvar, rm))
+    b = beta(dataframe, allocation, rm, mvar, dfm)
+    print(Color.DARKCYAN + '\nдоходность -' + Color.END, round(nrp * 100, 2))
+    print(Color.DARKCYAN + 'волатильность - ' + Color.END, round(nvr * 100, 2))
+    print(Color.DARKCYAN + 'коэффициент Шарпа - ' + Color.END, round(((nrp - rf)/nvr), 2))
+    print(Color.DARKCYAN + 'модифицированный коэффициент Шарпа - ' + Color.END, - round(negativeMSR(allocation, dataframe, mean, cov, rf), 2))
+    print(Color.DARKCYAN + 'кондиционный коэффициент Шарпа - ' + Color.END, - round(negativeCSR(allocation, dataframe, mean, cov, rf), 2))
+    print(Color.DARKCYAN + 'коэффициент Бетта - ' + Color.END, round(b, 2))
+    print(Color.DARKCYAN + 'коэффициент Тейнора - ' + Color.END, round(Treynor(nrp, rf, b), 4))
+    print(Color.DARKCYAN + 'Альфа Йенса - ' + Color.END, round(JensensAlpha(nrp, rf, rm, b) * 100, 2))
+    print(Color.DARKCYAN + 'M2 - ' + Color.END, round(M2(nrp, rf, nvr, mvar, rm) * 100, 2))
     print(Color.RED + 'в разработке - ' + Color.END)
+
+
+def conclude(allocation, date, safe_return, stocklist, str):
+    endDate = dt2(date, 12, 31)
+    startDate = endDate - dt.timedelta(days=365)
+    mean, cov, data = get_data(stocklist, startDate, endDate)
+    l = []
+    for i in allocation['вес в %']:
+        l.append(i / 100)
+    x = np.array(l)
+    market_p, market_var, marke = market(startDate, endDate)
+    print(market_p, market_var)
+    printer(allocation=x, rf=safe_return, rm=market_p, mvar=market_var, str=str, dataframe=data, mean=mean,
+            cov=cov, dfm=marke, view=allocation)
+

@@ -70,4 +70,6 @@ def EF_graph(returns, meanReturns, covMatrix, riskFreeRate=1, constraintSet=(0.0
         height=800)
 
     fig = go.Figure(data=data, layout=layout)
-    return fig.show()
+    return fig.show(), maxSR_returns, maxSR_std, maxSR_allocation, minVol_returns, minVol_std, minVol_allocation, maxPerf_returns, \
+        maxPerf_std, maxPerf_allocation, maxMSR_return, maxMSR_std, maxMSR_allocation, maxCSR_return, maxCSR_std, \
+        maxCSR_allocation, efficientList, targetReturns

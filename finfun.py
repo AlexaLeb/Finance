@@ -6,7 +6,7 @@ import scipy.optimize as sco
 import scipy.stats as scs
 import datetime as dt
 from datetime import datetime as dt2
-
+import random
 yf.pdr_override()
 
 
@@ -380,42 +380,36 @@ def calculatedResults(dataframe, meanReturns, covMatrix, dfm, riskFreeRate=1,  c
     maxMSR_allocation['вес в %'] = [round(i * 100, 3) for i in maxMSR_allocation['вес в %']]
     printer(maxMSRatio['x'], riskFreeRate, rm, mvar, 'Максимальный модифицированный коэффициент шарпа', dataframe, meanReturns, covMatrix, dfm, maxMSR_allocation)
 
-
-
-    with open('results.txt', 'w') as file:
-        print('Итог', file=file)
-
-        print('\nМаксимальный к Шарпа, веса активов', file=file)
-        print(maxSR_allocation, file=file)
-        print('\nдоходность -', round(maxSR_returns, 3), 'волатильность - ', round(maxSR_std, 3), file=file)
-
-        print('\nМинимальная волатильность, веса активов', file=file)
-        print(minVol_allocation, file=file)
-        print('\nдоходность -', round(minVol_returns, 3), 'волатильность - ', round(minVol_std, 3), file=file)
-
-        print('\nМаксимальная доходность, веса активов', file=file)
-        print(maxPerf_allocation, file=file)
-        print('\nдоходность -', round(maxPerf_returns, 3), 'волатильность - ', round(maxPerf_std, 3), file=file)
-
-        print('\nМаксимальный коэффициент шарпа при условной стоимости под риском., веса активов', file=file)
-        print(maxCSR_allocation, file=file)
-        print('\nдоходность -', round(maxCSR_return, 3),'волатильность - ', round(maxCSR_std, 3), file=file)
-
-        print('\nМаксимальный модифицированный коэффициент шарпа, веса активов', file=file)
-        print(maxMSR_allocation, file=file)
-        print('\nдоходность -', round(maxMSR_return, 3), 'волатильность - ', round(maxMSR_std, 3), file=file)
-
-
+    target_returns = []
+    c = 0
+    while c < 500:
+        randomlist = []
+        for i in range(len(meanReturns)):
+            randomlist.append(random.randint(0, 10))
+        randweight = []
+        for i in randomlist:
+            randweight.append(i / sum(randomlist))
+        target_return = portfolioReturn(np.array(randweight), meanReturns, covMatrix, dataframe)
+        target_returns.append(target_return)
+        c += 1
+    efficientList = []
+    target_returns = sorted(target_returns)
+    for i in target_returns:
+        efficientList.append(efficientOpt(meanReturns, covMatrix, i, dataframe, constraintSet))
+    efficientList = sorted(efficientList)
     # print(efficientList)
-    targetReturns = (maxPerf_returns - minVol_returns) * np.random.random_sample(50) + minVol_returns
-    efficientList = (maxPerf_std - minVol_std) * np.random.random_sample(50) + minVol_std
+    # targetReturns = (maxPerf_returns - minVol_returns) * np.random.random_sample(200) + minVol_returns
+    # efficientList = (maxPerf_std - minVol_std) * np.random.random_sample(50) + minVol_std
     # print(targetReturns)
+    # efficientList = []
+    # for i in targetReturns:
+    #     efficientList.append(efficientOpt(meanReturns, covMatrix, i, dataframe, constraintSet))
     # print(efficientList)
 
     # Возвращения функции
     return maxSR_returns, maxSR_std, maxSR_allocation, minVol_returns, minVol_std, minVol_allocation, maxPerf_returns, \
         maxPerf_std, maxPerf_allocation, maxMSR_return, maxMSR_std, maxMSR_allocation, maxCSR_return, maxCSR_std, \
-        maxCSR_allocation, efficientList, targetReturns
+        maxCSR_allocation, efficientList, target_returns
 
 
 def portfolioReturn(weights, meanReturns, covMatrix, dataframe):
@@ -426,15 +420,15 @@ def portfolioReturn(weights, meanReturns, covMatrix, dataframe):
 def efficientOpt(meanReturns, covMatrix, returnTarget, dataframe, constraintSet=(0, 0.3)):
     """Считает параметры для построения границы эффективности"""
     numAssets = len(meanReturns)
-    args = (meanReturns, covMatrix)
+    args = (meanReturns, covMatrix, dataframe)
     constraints = ({'type': 'eq', 'fun': lambda x: portfolioReturn(x, meanReturns, covMatrix, dataframe) - returnTarget},
                    {'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
-    bound = constraintSet
-    bounds = tuple(gbound(bound, numAssets, asset) for asset in range(numAssets))
+    bound = (0, 1)
+    bounds = tuple(bound for asset in range(numAssets))
     # noinspection PyTypeChecker
     effOpt = sco.minimize(portfolioVariance, numAssets * [1. / numAssets], args=args, method='SLSQP', bounds=bounds,
                           constraints=constraints)
-    return effOpt
+    return effOpt['fun']
 
 
 def JensensAlpha(rp, rf, rm, b):
@@ -469,29 +463,6 @@ def Beta(ra, rp):
     """
     coeffBeta = (np.cov(ra, rp)) / (np.std(ra, rp))
     return coeffBeta
-
-def JensensAlpha(rp, rf, rm, b):
-    """
-    Альфа Йенса
-    :param rp: - portfolio return
-    :param rf: - risk-free rate
-    :param rm: - expected market return
-    :param b: - portfolio beta
-    :return:
-    """
-    coeffJensensAlpha = rp - (rf + b*(rm - rf))
-    return coeffJensensAlpha
-
-def Treynor(rp, rf, b):
-    """
-    К Трейнора
-    :param rp: - portfolio return
-    :param rf: - risk-free rate
-    :param b: - portfolio beta
-    :return:
-    """
-    coeffTreynor = (rp - rf) / b
-    return coeffTreynor
 
 def beta(dataframe, weight, rm, mvar, dfm):
     """
@@ -542,6 +513,8 @@ def printer(allocation, rf, rm, mvar, str, dataframe, mean, cov, dfm, view, file
     print(Color.DARKCYAN + 'Альфа Йенса - ' + Color.END, round(JensensAlpha(nrp, rf, rm, b) * 100, 2), '%')
     print(Color.DARKCYAN + 'M2 - ' + Color.END, round(M2(nrp, rf, nvr, mvar, rm) * 100, 2), '%')
     print(Color.RED + 'в разработке - ' + Color.END)
+    if file:
+        pass
 
 
 def conclude(allocation, date, safe_return, stocklist, str):
@@ -555,4 +528,3 @@ def conclude(allocation, date, safe_return, stocklist, str):
     market_p, market_var, marke = market(startDate, endDate)
     printer(allocation=x, rf=safe_return, rm=market_p, mvar=market_var, str=str, dataframe=data, mean=mean,
             cov=cov, dfm=marke, view=allocation)
-

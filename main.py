@@ -21,6 +21,7 @@ market_m, market_var, df = market(startDate, endDate)
 #     print(((1 + i) ** 252 - 1) * 1)
 list_by_calc = calculatedResults(dataframe=returns, meanReturns=meant, covMatrix=cov, riskFreeRate=(bill2020), dfm=df,
                   constraintSet=(0.06, 0.15), rm=market_m, mvar=market_var)
+EF_graph(list_by_calc)
 
 di = {
     'SR ratio': [list_by_calc[0], list_by_calc[1], list_by_calc[2]],

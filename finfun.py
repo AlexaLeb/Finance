@@ -448,7 +448,7 @@ def Jensens_Alpha(rp, rf, rm, b):
 
 def Treynor(rp, rf, b):
     """
-    Считает коэффициент Тейнора
+    Считает коэффициент Трейнора
     :param rp: - portfolio return
     :param rf: - risk-free rate
     :param b: - portfolio beta

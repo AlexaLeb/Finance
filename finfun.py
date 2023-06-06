@@ -324,7 +324,7 @@ def negativeCSR(weights, dataframe, mean, cov, riskFreeRate=1):
         # доходности актива на его вес
     returns, std = portfolioPerformance(weights, mean, cov, dataframe)
     data = data['Gew'].dropna()
-    cvar = np.percentile(data, 1)  # Условная стоимость под риском или ожидаемый дефицит
+    cvar = np.percentile(data, 1)  # Берем перцентиль одного процента
     csr = (returns - riskFreeRate) / abs(cvar)
     return - csr
 

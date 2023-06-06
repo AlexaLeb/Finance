@@ -1,4 +1,3 @@
-from finfun import calculatedResults
 import plotly.graph_objects as go
 
 

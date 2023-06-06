@@ -32,12 +32,12 @@ def market(start, end):
     :return: среднюю доходность рынка, его дисперсию и таблицу с изменениями цен.
     """
     df = pd.read_csv('NYSE Composite Historical Data.csv')  # Прочитали файл с данными по рынку
-    df['Date'] = df['Date'].apply(lambda x: x.replace('.', '/'))  # заменили точки на палочки
+    df['Date'] = df['Date'].apply(lambda date: date.replace('.', '/'))  # заменили точки на палочки
     df['Date'] = pd.to_datetime(df['Date'])
     df = df.set_index(df['Date'])
     df = df[(df.Date > start) & (df.Date < end)]
-    df = df['Price'].apply(lambda x: x.replace(',', ''))  # Заменили запятые на точки
-    markets = df.apply(lambda x: float(x[0:-1]) if "%" in x else float(x))  # убрали знак процента
+    df = df['Price'].apply(lambda price: price.replace(',', ''))  # Заменили запятые на точки
+    markets = df.apply(lambda price: float(price[0:-1]) if "%" in price else float(price))  # убрали знак процента
     lis = []
     for i in range(len(markets)):  # Находим изменение индекса
         if i == 0:
@@ -89,16 +89,16 @@ def get_data(stocks, start, end):
 
     # ETF
     df = pd.read_csv(files[1])  # Прочитали файл с данными по ETF
-    df['Дата'] = df['Дата'].apply(lambda x: x.replace('.', '/'))  # заменили точки на палочки
+    df['Дата'] = df['Дата'].apply(lambda date: date.replace('.', '/'))  # заменили точки на палочки
     df['Date'] = pd.to_datetime(df['Дата'], dayfirst=True)
     df = df.set_index(df['Date'])
-    df = df['Цена'].apply(lambda x: x.replace(',', '.'))  # Заменили запятые на точки
-    df = df.apply(lambda x: float(x[0:-1]) if "%" in x else float(x))  # убрали знак процента
+    df = df['Цена'].apply(lambda price: price.replace(',', '.'))  # Заменили запятые на точки
+    df = df.apply(lambda price: float(price[0:-1]) if "%" in price else float(price))  # убрали знак процента
     stockdata['ETF'] = df
 
     # xle
     df = pd.read_csv(files[0])  # Прочитали файл с данными по XLE
-    df['Date'] = df['Date'].apply(lambda x: x.replace('.', '/'))  # заменили точки на палочки
+    df['Date'] = df['Date'].apply(lambda date: date.replace('.', '/'))  # заменили точки на палочки
     df['Date'] = pd.to_datetime(df['Date'])
     df = df.set_index(df['Date'])
     df = df['Price']
@@ -141,7 +141,7 @@ def portfolioPerformance(weights, meanReturns, covMatrix, dataframe):
 
 def negativePP(weights, meanReturns, covMatrix, dataframe):
     """
-    Функция находит отрицательную доходность портфеля, минус нужен для оптимиации.
+    Функция находит отрицательную доходность портфеля, минус нужен для оптимизации.
     :param weights: веса активов.
     :param meanReturns: средняя доходность в сутки.
     :param covMatrix: ковариационная матрица.
@@ -162,19 +162,19 @@ def maxPPerformance(meanReturns, covMatrix, dataframe, constraintSet=(0, 1)):
     :return: большой словарь по оптимизации заданных параметров.
     """
     numAssets = len(meanReturns)  # количество активов
-    args = (meanReturns, covMatrix, dataframe)
-    constraints = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
-    bound = constraintSet
-    bounds = tuple(gbound(bound, numAssets, asset) for asset in range(numAssets))
+    args = (meanReturns, covMatrix, dataframe)  # Известные аргументы функции (вес активов неизвестен, его будут искать)
+    constraints = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})  # Сумма весов должна быть равна единице
+    bound = constraintSet  # Границы для каждого актива
+    bounds = tuple(gbound(bound, numAssets, asset) for asset in range(numAssets))  # Модифицирование границ
     # noinspection PyTypeChecker
     result = sco.minimize(negativePP, numAssets * [1. / numAssets], args=args,
-                          method='SLSQP', bounds=bounds, constraints=constraints)
+                          method='SLSQP', bounds=bounds, constraints=constraints)  # Оптимизатор
     return result
 
 
 def gbound(bounds, assets, asset):
     """
-    Функция задает персонализированные границы для последнего и предпоследнего актива
+    Функция задает персонализированные границы для последнего и предпоследнего актива.
     :param bounds: общие границы.
     :param assets: длина списка активов.
     :param asset: номер актива.
@@ -196,7 +196,7 @@ def negativeSR(weights, meanReturns, covMatrix, dataframe, riskFreeRate=1):
     :param covMatrix: матрица ковариации.
     :param riskFreeRate: безрисковая ставка доходности.
     :param dataframe: таблица доходностей.
-    :return: негативный коэф шарпа.
+    :return: негативный коэффициент шарпа.
     """
     pReturns, pStd = portfolioPerformance(weights, meanReturns, covMatrix, dataframe)
     return - (pReturns - riskFreeRate)/pStd
@@ -209,7 +209,8 @@ def maxSRatio(meanReturns, covMatrix, dataframe, riskFreeRate=1, constraintSet=(
     :param covMatrix: матрица ковариации.
     :param riskFreeRate: безрисковая ставка доходности.
     :param constraintSet: параметр необходимый для решения уравнения.
-    :return: большой словарь по оптимизации заданных параметров .
+    :param dataframe: таблица доходностей.
+    :return: большой словарь по оптимизации заданных параметров.
     """
     numAssets = len(meanReturns)  # количество активов
     args = (meanReturns, covMatrix, dataframe, riskFreeRate)
@@ -228,6 +229,7 @@ def portfolioVariance(weights, meanReturns, covMatrix, dataframe):
     :param weights: веса
     :param meanReturns: среднее
     :param covMatrix: ковариация
+    :param dataframe: таблица доходностей.
     :return: отклонения
     """
     return portfolioPerformance(weights, meanReturns, covMatrix, dataframe)[1]
@@ -238,7 +240,8 @@ def minimizeVariance(meanReturns, covMatrix, dataframe, constraintSet=(0.04, 0.5
     Выдает веса для минимальной вариации
     :param meanReturns: средняя доходность
     :param covMatrix: матрица ковариации
-    :param constraintSet: параметрр для решения уравнения
+    :param constraintSet: параметр для решения уравнения
+    :param dataframe: таблица доходностей.
     :return:
     """
     numAssets = len(meanReturns)
@@ -254,12 +257,12 @@ def minimizeVariance(meanReturns, covMatrix, dataframe, constraintSet=(0.04, 0.5
 
 def negativeMSR(weights, dataframe, meanReturns, covMatrix, riskFreeRate=1):
     """
-    Считает модифицированный коэф шарпа и делает его отрицательным
-    :param dataframe
-    :param weights:
-    :param meanReturns:
-    :param covMatrix:
-    :param riskFreeRate:
+    Считает модифицированный коэффициент Шарпа и делает его отрицательным
+    :param dataframe: таблица доходностей.
+    :param weights: веса активов.
+    :param meanReturns: средние доходности актива.
+    :param covMatrix: матрица ковариации.
+    :param riskFreeRate: безрисковая ставка.
     :return:
     """
     data = dataframe.copy()
@@ -273,28 +276,31 @@ def negativeMSR(weights, dataframe, meanReturns, covMatrix, riskFreeRate=1):
     geom = scs.gmean(data) - 1  # Находим геометрическое среднее
     vol = data.std()  # считаем волатильность
     z = scs.norm.ppf(0.99)    # Z оценка для 99% интервала
-    skew = scs.skew(data)  # skewness Ассиметрия (смещение распределения)
-    kurt = scs.kurtosis(data)  # Kurtosis Экцесс (выпуклость графика)
-    zmvar = z + (1/6 * ((z ** 2) - 1) * skew) + (1/24 * ((z ** 3) - 3 * z) * kurt) - (1/36 * (2 * (z ** 3) - 5 * z) *
-                                                                              skew ** 2)
+    skew = scs.skew(data)  # skewness Асимметрия (смещение распределения)
+    kurt = scs.kurtosis(data)  # Kurtosis Эксцесс (выпуклость графика)
+    zmvar = z + (1 / 6 * ((z ** 2) - 1) * skew) + (1 / 24 * ((z ** 3) - 3 * z)
+                                                   * kurt) - (1 / 36 * (2 * (z ** 3) - 5 * z) * skew ** 2)
     # Считаем z оценку для модифицированной стоимостной оценки риска
     mvar = geom - zmvar * vol  # Находим модифицированную стоимостную оценку риска
     msr = (returns - riskFreeRate) / abs(mvar)  # Находим модифицированный коэффициент шарпа
     return - msr
 
+
 def maxMSR(dataframe, meanReturns, covMatrix, riskFreeRate=1, constraintSet=(0.04, 0.5)):
     """
-    Выдает веса для максимальногоо модифицироованного коэфициента шарпа
+    Выдает веса для максимального модифицироованного коэффициента шарпа
     :param meanReturns: средняя доходность
     :param covMatrix: матрица ковариации
-    :param constraintSet: параметрр для решения уравнения
+    :param constraintSet: параметр для решения уравнения.
+    :param dataframe: таблица доходностей.
+    :param riskFreeRate: безрисковая ставка.
     :return:
     """
     numAssets = len(meanReturns)  # Находим количество членов уравнения
     args = (dataframe, meanReturns, covMatrix, riskFreeRate)  # Задаем аргументы для функции
     constraints = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
     bound = constraintSet  # Задаем ограничения для основного массива активов
-    bounds = tuple(gbound(bound, numAssets, asset) for asset in range(numAssets))  #
+    bounds = tuple(gbound(bound, numAssets, asset) for asset in range(numAssets))
     # noinspection PyTypeChecker
     result = sco.minimize(negativeMSR, numAssets * [1. / numAssets], args=args, method='SLSQP', bounds=bounds,
                           constraints=constraints)
@@ -303,7 +309,7 @@ def maxMSR(dataframe, meanReturns, covMatrix, riskFreeRate=1, constraintSet=(0.0
 
 def negativeCSR(weights, dataframe, mean, cov, riskFreeRate=1):
     """
-    Расчитывает отрицательный коэффициент шарпа при условной стоимости под риском.
+    Рассчитывает отрицательный коэффициент шарпа при условной стоимости под риском.
     :param weights: веса
     :param dataframe: данные с доходностями активов по дням.
     :param mean: средняя доходность актива за период.
@@ -322,12 +328,15 @@ def negativeCSR(weights, dataframe, mean, cov, riskFreeRate=1):
     csr = (returns - riskFreeRate) / abs(cvar)
     return - csr
 
+
 def maxCSR(dataframe, meanReturns, covMatrix, riskFreeRate=1, constraintSet=(0.04, 0.5)):
     """
-    Выдает веса для коэффициент шарпа при условной стоимости под риском.
-    :param meanReturns: средняя доходность
+    Выдает веса для коэффициента Шарпа при условной стоимости под риском.
+    :param meanReturns: средняя доходность.
     :param covMatrix: матрица ковариации
-    :param constraintSet: параметрр для решения уравнения
+    :param constraintSet: ограничения активов для решения уравнения.
+    :param dataframe: данные с доходностями активов по дням.
+    :param riskFreeRate: безрисковая ставка
     :return:
     """
     numAssets = len(meanReturns)  # Находим количество членов уравнения
@@ -341,23 +350,26 @@ def maxCSR(dataframe, meanReturns, covMatrix, riskFreeRate=1, constraintSet=(0.0
     return result
 
 
-
 def calculatedResults(dataframe, meanReturns, covMatrix, dfm, riskFreeRate=1,  constraintSet=(0.04, 0.20), rm=10, mvar=5):
     """
-    Общая функция, которая вызывает остальные функции расчета, обрабатывает их результат
+    Общая функция, которая вызывает остальные функции расчета, обрабатывает их результат.
     :param meanReturns: средняя
     :param covMatrix: матрица ковариации
-    :param riskFreeRate: безрисковая ставка доходноости.
-    :param constraintSet: параметр для решения уравнения.
+    :param riskFreeRate: безрисковая ставка доходности.
+    :param constraintSet: ограничения весов активов.
+    :param dataframe: данные с доходностями активов по дням.
+    :param dfm: данные по рынку.
+    :param rm: рыночная доходность.
+    :param mvar: рыночная дисперсия.
     :return:
-    1. Доходность максимального к Шапра
-    2. Волатильность максимального к Шарпа
-    3. Веса портфеля максимальног к Шарпа
-    4. Доходность минимальной волатильности
-    5. Волотильность минимальной волатильности
-    6. Веса минимальной волатильности
-    7. Доходность промежуточных параметров для построения графика
-    8. Валотильноость промежуточных параметров для построения графика
+    1. Доходность максимального к Шарпа.
+    2. Волатильность максимального к Шарпа.
+    3. Веса портфеля максимального к Шарпа.
+    4. Доходность минимальной волатильности.
+    5. Волатильность минимальной волатильности.
+    6. Веса минимальной волатильности.
+    7. Доходность промежуточных параметров для построения графика.
+    8. Волатильность промежуточных параметров для построения графика.
     """
 
     # Максимальный коэффициент Шарпа
@@ -373,7 +385,7 @@ def calculatedResults(dataframe, meanReturns, covMatrix, dfm, riskFreeRate=1,  c
     minVol_allocation = pd.DataFrame(minVol_Portfolio['x'], index=meanReturns.index, columns=['вес в %'])
     minVol_allocation['вес в %'] = [round(i * 100, 3) for i in minVol_allocation['вес в %']]
     printer(allocation=minVol_Portfolio['x'], rf=riskFreeRate, rm=rm, mvar=mvar,
-            stri='Минимальная волатильность', dataframe=dataframe, mean=meanReturns, cov=covMatrix, dfm=dfm, view=minVol_allocation, file=None)
+            string='Минимальная волатильность', dataframe=dataframe, mean=meanReturns, cov=covMatrix, dfm=dfm, view=minVol_allocation)
 
     # Максимальная доходность
     maxPerf_Portfolio = maxPPerformance(meanReturns, covMatrix, dataframe, constraintSet)
@@ -396,36 +408,22 @@ def calculatedResults(dataframe, meanReturns, covMatrix, dfm, riskFreeRate=1,  c
     maxMSR_allocation['вес в %'] = [round(i * 100, 3) for i in maxMSR_allocation['вес в %']]
     printer(maxMSRatio['x'], riskFreeRate, rm, mvar, 'Максимальный модифицированный коэффициент шарпа', dataframe, meanReturns, covMatrix, dfm, maxMSR_allocation)
 
+    # Генератор случайных портфелей.
     target_returns = []
     efficientList = []
     c = 0
-    while c < 15000:
-        randomlist = []
+    while c < 15000:  # Счетчик на 15000 портфелей
+        random_list = []
         for i in range(len(meanReturns)):
-            randomlist.append(random.randrange(100))
-        randweight = []
-        for i in randomlist:
-            randweight.append(i / sum(randomlist))
-        target_return = portfolioReturn(np.array(randweight), meanReturns, covMatrix, dataframe)
+            random_list.append(random.randrange(100))  # генерирует случайное число столько раз сколько есть активов
+        random_weight = []
+        for i in random_list:
+            random_weight.append(i / sum(random_list))  # делит каждое число на сумму всех сгенерированных портфелей
+        target_return = portfolioReturn(np.array(random_weight), meanReturns, covMatrix, dataframe)  # находит доходность
         target_returns.append(target_return)
-        efficient = portfolioVariance(np.array(randweight),  meanReturns, covMatrix, dataframe)
+        efficient = portfolioVariance(np.array(random_weight),  meanReturns, covMatrix, dataframe)  # находит вариацию
         efficientList.append(efficient)
-        c += 1
-
-    # efficientList = []
-    # target_returns = sorted(target_returns)
-    # efficientList = sorted(efficientList)
-    # for i in target_returns:
-    #     efficientList.append(efficientOpt(meanReturns, covMatrix, i, dataframe, constraintSet))
-    # efficientList = sorted(efficientList)
-    # print(efficientList)
-    # targetReturns = (maxPerf_returns - minVol_returns) * np.random.random_sample(200) + minVol_returns
-    # efficientList = (maxPerf_std - minVol_std) * np.random.random_sample(50) + minVol_std
-    # print(targetReturns)
-    # efficientList = []
-    # for i in targetReturns:
-    #     efficientList.append(efficientOpt(meanReturns, covMatrix, i, dataframe, constraintSet))
-    # print(efficientList)
+        c += 1  # увеличение счетчика на 1
 
     # Возвращения функции
     return maxSR_returns, maxSR_std, maxSR_allocation, minVol_returns, minVol_std, minVol_allocation, maxPerf_returns, \
@@ -438,21 +436,7 @@ def portfolioReturn(weights, meanReturns, covMatrix, dataframe):
     return portfolioPerformance(weights, meanReturns, covMatrix, dataframe)[0]
 
 
-def efficientOpt(meanReturns, covMatrix, returnTarget, dataframe, constraintSet=(0, 0.3)):
-    """Считает параметры для построения границы эффективности"""
-    numAssets = len(meanReturns)
-    args = (meanReturns, covMatrix, dataframe)
-    constraints = ({'type': 'eq', 'fun': lambda x: portfolioReturn(x, meanReturns, covMatrix, dataframe) - returnTarget},
-                   {'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
-    bound = (0, 1)
-    bounds = tuple(bound for asset in range(numAssets))
-    # noinspection PyTypeChecker
-    effOpt = sco.minimize(portfolioVariance, numAssets * [1. / numAssets], args=args, method='SLSQP', bounds=bounds,
-                          constraints=constraints)
-    return effOpt['fun']
-
-
-def JensensAlpha(rp, rf, rm, b):
+def Jensens_Alpha(rp, rf, rm, b):
     """
     Считает Альфу Йенса
     :param rp: portfolio return
@@ -463,6 +447,7 @@ def JensensAlpha(rp, rf, rm, b):
     """
     coeffJensensAlpha = rp - (rf + b*(rm - rf))
     return coeffJensensAlpha
+
 
 def Treynor(rp, rf, b):
     """
@@ -475,9 +460,10 @@ def Treynor(rp, rf, b):
     coeffTreynor = (rp - rf) / b
     return coeffTreynor
 
-def beta(dataframe, weight, rm, mvar, dfm):
+
+def beta(dataframe, weight, mvar, dfm):
     """
-    Бетта коэффициент
+    Бета коэффициент
     """
     if len(dataframe) > len(dfm):
         dataframe = dataframe[(len(dataframe)-len(dfm)):]
@@ -490,14 +476,15 @@ def beta(dataframe, weight, rm, mvar, dfm):
         l.append(cova)
     for i in range(len(l)):
         betta.append(l[i] * weight[i])
-    beta = sum(betta)
-    return beta
+    betta = sum(betta)
+    return betta
+
 
 def M2(rp, rf, pstd, mstd, rm):
     """
-    Считает коэффициент Модельятти
+    Считает коэффициент М2
     :param rp: доходность портфеля
-    :param rf: доходность безрискового актива
+    :param rf: доходность без рискового актива
     :param pstd: стандартное отклонение портфеля
     :param mstd: стандартное отклонение индекса
     :param rm: доходность индекса
@@ -505,31 +492,41 @@ def M2(rp, rf, pstd, mstd, rm):
     """
     return (((rp - rf) * np.sqrt(mstd)) / pstd) - (rm - rf)
 
-def printer(allocation, rf, rm, mvar, stri, dataframe, mean, cov, dfm, view, file=None, year=None):
+
+def printer(allocation, rf, rm, mvar, string, dataframe, mean, cov, dfm, view, year=None):
+    """Функция занимается выводом результатов на экран"""
     print(Color.BOLD + Color.GREEN + '\nПоказатели' + Color.END)
     if year:
         year = str(year)
         print(Color.BOLD + Color.GREEN + 'за ' + year + Color.END)
-    print(Color.GREEN + '\n' + stri + ', веса активов' + Color.END)
-    print(view)
+    print(Color.GREEN + string + ', веса активов' + Color.END)
+    if year is None:
+        print(view)
     nrp = portfolioReturn(allocation, meanReturns=mean, covMatrix=cov, dataframe=dataframe)
     nvr = portfolioVariance(allocation, mean, cov, dataframe)
-    b = beta(dataframe, allocation, rm, mvar, dfm)
+    b = beta(dataframe, allocation, mvar, dfm)
     print(Color.DARKCYAN + '\nдоходность -' + Color.END, round(nrp * 100, 2), '%')
     print(Color.DARKCYAN + 'волатильность - ' + Color.END, round(nvr * 100, 2), '%')
     print(Color.DARKCYAN + 'коэффициент Шарпа - ' + Color.END, round(((nrp - rf)/nvr), 2))
     print(Color.DARKCYAN + 'модифицированный коэффициент Шарпа - ' + Color.END, - round(negativeMSR(allocation, dataframe, mean, cov, rf), 2))
     print(Color.DARKCYAN + 'кондиционный коэффициент Шарпа - ' + Color.END, - round(negativeCSR(allocation, dataframe, mean, cov, rf), 2))
-    print(Color.DARKCYAN + 'коэффициент Бетта - ' + Color.END, round(b, 2))
+    print(Color.DARKCYAN + 'коэффициент Бета - ' + Color.END, round(b, 2))
     print(Color.DARKCYAN + 'коэффициент Тейнора - ' + Color.END, round(Treynor(nrp, rf, b), 4))
-    print(Color.DARKCYAN + 'Альфа Йенса - ' + Color.END, round(JensensAlpha(nrp, rf, rm, b) * 100, 2), '%')
+    print(Color.DARKCYAN + 'Альфа Йенса - ' + Color.END, round(Jensens_Alpha(nrp, rf, rm, b) * 100, 2), '%')
     print(Color.DARKCYAN + 'M2 - ' + Color.END, round(M2(nrp, rf, nvr, mvar, rm) * 100, 2), '%')
     print(Color.RED + 'в разработке - ' + Color.END)
-    if file:
-        pass
 
 
 def conclude(allocation, date, safe_return, stocklist, str):
+    """
+    Функция выводящая данные существующего портфеля по другим годам
+    :param allocation: таблица с весами активов
+    :param date: год
+    :param safe_return: безрисковая ставка
+    :param stocklist: лист акций
+    :param str:
+    :return:
+    """
     endDate = dt2(date, 12, 31)
     startDate = endDate - dt.timedelta(days=365)
     mean, cov, data = get_data(stocklist, startDate, endDate)
@@ -538,5 +535,5 @@ def conclude(allocation, date, safe_return, stocklist, str):
         l.append(i / 100)
     x = np.array(l)
     market_p, market_var, marke = market(startDate, endDate)
-    printer(allocation=x, rf=safe_return, rm=market_p, mvar=market_var, stri=str, dataframe=data, mean=mean,
+    printer(allocation=x, rf=safe_return, rm=market_p, mvar=market_var, string=str, dataframe=data, mean=mean,
             cov=cov, dfm=marke, view=allocation, year=date)

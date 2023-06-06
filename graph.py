@@ -41,7 +41,7 @@ def EF_graph(list_by_calc):
     )
 
     MaxCSR = go.Scatter(
-        name='Максимальный коэффициент шарпа при условной стоимости под риском',
+        name='Максимальный кондиционный коэффициент Шарпа',
         mode='markers',
         x=[round(maxCSR_std * 100, 4)],
         y=[round(maxCSR_return * 100, 4)],
@@ -49,11 +49,11 @@ def EF_graph(list_by_calc):
     )
     # Граница эффективности
     EF_curve = go.Scatter(
-        name='Граница эффективности',
-        mode='lines',
+        name='Случайный портфель',
+        mode='markers',
         x=[round(ef_std * 100, 4) for ef_std in efficientList],
         y=[round(target * 100, 4) for target in targetReturns],
-        line=dict(color='black', width=4, dash='dashdot')
+        marker=dict(color='black', size=4)
     )
     data = [MaxSharpeRatio, MinVol, EF_curve, MaxPP, MaxMSR, MaxCSR]
     layout = go.Layout(

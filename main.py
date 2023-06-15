@@ -10,6 +10,7 @@ meant, cov, returns = get_data(stocks=stocklist, start=startDate, end=endDate)
 bill2020 = bill_rate_mean('daily-treasury-rates.csv')
 bill2021 = bill_rate_mean('daily-treasury-rates-2.csv')
 bill2022 = bill_rate_mean('daily-treasury-rates-3.csv')
+
 list_of_bills = [bill2020, bill2021, bill2022]
 market_m, market_var, df = market(startDate, endDate)
 

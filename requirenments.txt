@@ -1,0 +1,10 @@
+plotly.graph_objects
+pandas
+numpy
+yfinance
+pandas_datareader
+scipy.optimize
+scipy.stats
+datetime
+datetime.datetime
+random

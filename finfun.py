@@ -363,8 +363,8 @@ def calculatedResults(dataframe, meanReturns, covMatrix, dfm, riskFreeRate=1,  c
     :param mvar: рыночная дисперсия.
     :return:
     1. Доходность максимального к Шарпа, модифицированного к Шарпа6 кондиционного к Шарпа, максимальной доходности и минимальной волатильности.
-    2. Волатильность максимального к Шарпа модифицированного к Шарпа6 кондиционного к Шарпа, максимальной доходности и минимальной волатильности..
-    3. Веса портфеля максимального к Шарпа модифицированного к Шарпа6 кондиционного к Шарпа, максимальной доходности и минимальной волатильности..
+    2. Волатильность максимального к Шарпа модифицированного к Шарпа6 кондиционного к Шарпа, максимальной доходности и минимальной волатильности.
+    3. Веса портфеля максимального к Шарпа модифицированного к Шарпа6 кондиционного к Шарпа, максимальной доходности и минимальной волатильности.
     7. Доходность случайных портфелей для построения графика.
     8. Волатильность случайных портфелей для построения графика.
     """
@@ -409,7 +409,7 @@ def calculatedResults(dataframe, meanReturns, covMatrix, dfm, riskFreeRate=1,  c
     target_returns = []
     efficientList = []
     c = 0
-    while c < 15000:  # Счетчик на 15000 портфелей
+    while c < 100000:  # Счетчик на 15000 портфелей
         random_list = []
         for i in range(len(meanReturns)):
             random_list.append(random.randrange(100))  # генерирует случайное число столько раз сколько есть активов
@@ -511,7 +511,6 @@ def printer(allocation, rf, rm, mvar, string, dataframe, mean, cov, dfm, view, y
     print(Color.DARKCYAN + 'коэффициент Тейнора - ' + Color.END, round(Treynor(nrp, rf, b), 4))
     print(Color.DARKCYAN + 'Альфа Йенса - ' + Color.END, round(Jensens_Alpha(nrp, rf, rm, b) * 100, 2), '%')
     print(Color.DARKCYAN + 'M2 - ' + Color.END, round(M2(nrp, rf, nvr, mvar, rm) * 100, 2), '%')
-    print(Color.RED + 'в разработке - ' + Color.END)
 
 
 def conclude(allocation, date, safe_return, stocklist, str):
